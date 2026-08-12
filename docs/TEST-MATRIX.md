@@ -77,6 +77,26 @@ Scenarios run with `--all` or individually with `--scenario <id>`.
 Both are in the matrix; the permissions + file-picker + interaction-plan
 scenarios are the user-action lens.
 
+## Memory leaks: inside or outside the matrix? (2026-08-12 guidance)
+
+Two distinct concerns, both worth having, only one is a resilience SCENARIO:
+
+1. **Memory-PRESSURE resilience** (environmental) — how the app behaves when the
+   browser is under memory pressure: `memory-critical`, `tab-crash`,
+   `backgrounded`. This IS in the matrix.
+2. **Memory-LEAK hygiene** (code quality) — the app's own growing footprint
+   (heap, DOM nodes, listeners) across repeated interactions. This is NOT a
+   scenario; it's a supplementary probe (`harness/leak-probe.ts --loops 10`)
+   run on demand.
+
+Why keep leak-detection supplementary rather than a matrix scenario: it needs
+repeated interaction loops (slow, interaction-dependent) and its signal (growth)
+isn't an environment condition. But it AMPLIFIES #1 — a leaky app OOMs faster on
+low-memory devices — so the audit surfaces leak findings (class: memory) when
+the probe is run, and the fix skill has the leak-fix patterns. Leak-detection is
+also home turf for the performance/web-perf tooling; here it's the optional
+deep-dive, not a core gate.
+
 ## Payments (future area — monitored, not tested yet)
 
 Payment flows are high-value but testing them needs a sandboxed PSP/stripe-test

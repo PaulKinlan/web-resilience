@@ -59,7 +59,7 @@ The harness accepts a JSON interaction plan (`harness/interactions.ts`):
 DOM-derived (the harness extracts forms/buttons/links) or user-described; Chrome
 DevTools recorder macro exports map to the same step format.
 
-## Leak detection
+## Leak detection (optional deep-dive, not a matrix scenario)
 
 `deno run -A harness/leak-probe.ts <url> --loops 10` samples heap + DOM-counter
 deltas across repeated interaction loops — a growing heap/node/listener count
