@@ -10,7 +10,8 @@ const mime: Record<string, string> = {
 };
 Deno.serve({ port, hostname: "127.0.0.1" }, async (req) => {
   const u = new URL(req.url);
-  const rel = u.pathname === "/" ? "index.html" : u.pathname.replace(/^\//, "");
+  let rel = u.pathname === "/" ? "index.html" : u.pathname.replace(/^\//, "");
+  if (rel.endsWith("/")) rel += "index.html";
   const file = new URL(rel, root);
   if (file.pathname.startsWith(root.pathname)) {
     try {

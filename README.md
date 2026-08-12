@@ -59,6 +59,12 @@ deno run -A eval/run-eval.ts http://127.0.0.1:8080/resilient-club/ eval/rubrics/
 
 # Serve the fixtures locally
 deno run -A fixtures/serve.ts 8080
+
+# Leak probe (heap/node/listener deltas across interaction loops)
+deno run -A harness/leak-probe.ts http://127.0.0.1:8080/resilient-club/ --loops 10
+
+# Autoresearch measurement loop
+deno run -A eval/autoresearch.ts --rounds 3
 ```
 
 ## Running in an agent session (pi / Claude Code / Codex)
@@ -73,12 +79,14 @@ deno run -A fixtures/serve.ts 8080
 
 - [x] Scaffold + harness (launch/scenarios/capture/report) — verified against live sites
 - [x] Audit + fix skills (drafts)
-- [x] Eval scorer + runner (draft)
-- [x] Fixture 1 (resilient-club, issue-seeded) + serve
-- [ ] Reference site (fixed version of resilient-club)
-- [ ] Rubric for fixture 1 + first eval run
+- [x] Eval scorer + runner — broken fixture 4/5 (issues detected), fixed fixture 3/5 (fixes detected); the delta is measurable
+- [x] Fixture 1 (resilient-club, issue-seeded) + reference site (SW shell, font swap, resilient init) + local server
+- [x] Rubrics for both fixtures (v1/v2) + SW prime pass in the eval
+- [x] Interaction plans (harness/interactions.ts — DOM-derived + user-described steps)
+- [x] Leak probe (harness/leak-probe.ts — heap + DOM-counter deltas across loops)
+- [x] First guides (offline-fallback, font-resilience, js-resilience)
+- [x] Autoresearch scaffold (eval/autoresearch.ts — measurement loop; mutation step plugs into pi-autoresearch)
 - [ ] Vision provider adapter (Gemini first)
-- [ ] Interaction test plans (DOM-derived + user-described + recorder macros)
-- [ ] Leak-detection step in the audit
-- [ ] Guide authoring per GUIDES-GAP.md
-- [ ] Autoresearch loop wiring
+- [ ] Recorder-macro import + DOM-flow auto-derivation integration
+- [ ] Remaining guides per GUIDES-GAP.md (9 left)
+- [ ] Autoresearch mutation loop (model-proposed skill/guide changes)

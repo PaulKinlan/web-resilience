@@ -53,6 +53,19 @@ deno run -A /tmp/web-resilience/harness/run-scenario.ts <url> --all --screenshot
 
 ## Interaction coverage (test plans)
 
+The harness accepts a JSON interaction plan (`harness/interactions.ts`):
+`deno run -A harness/leak-probe.ts <url> --steps plan.json` drives the steps and
+`harness/run-scenario.ts` can run scenarios with interactions. Plans can be
+DOM-derived (the harness extracts forms/buttons/links) or user-described; Chrome
+DevTools recorder macro exports map to the same step format.
+
+## Leak detection
+
+`deno run -A harness/leak-probe.ts <url> --loops 10` samples heap + DOM-counter
+deltas across repeated interaction loops — a growing heap/node/listener count
+is a leak to flag in the findings (see web-resilience-fix).
+
+
 Loading alone misses interaction-dependent failures. Extend the audit with a
 **test plan**:
 - Auto-derive: analyze the DOM (forms, buttons, links, app-shell navigation)

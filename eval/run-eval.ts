@@ -10,16 +10,29 @@ import { SCENARIOS } from "../harness/scenarios.ts";
 import type { ScenarioReport, AuditReport } from "../harness/types.ts";
 import { scoreAudit, type RubricFinding } from "./score.ts";
 
-const url = Deno.args[0];
-const rubricPath = Deno.args[1];
-const outDir = Deno.args[Deno.args.indexOf("--out") + 1] ?? "/tmp/web-resilience-eval";
-await Deno.mkdir(outDir, { recursive: true });
-
-const rubric = JSON.parse(await Deno.readTextFile(rubricPath)) as { fixture: string; version: number; expectedFindings: RubricFinding[] };
-
-const { wsUrl, proc } = await launchChrome(`${outDir}/.chrome`);
+export async function runEval(url: string, rubricPath: string, outDir = "/tmp/web-resilience-eval") {
+  await Deno.mkdir(outDir, { recursive: true });
+  const rubric = JSON.parse(await Deno.readTextFile(rubricPath)) as { fixture: string; version: number; expectedFindings: RubricFinding[] };
+  const { wsUrl, proc } = await launchChrome(`${outDir}/.chrome`);
 const cdp = new CdpClient(wsUrl);
 await cdp.ready();
+
+async function prime(cdp: CdpClient, url: string) {
+  // Load once + wait for SW install so offline/dns scenarios exercise the shell.
+  const page = await cdp.send("Target.createTarget", { url });
+  const { sessionId } = await cdp.send("Target.attachToTarget", { targetId: page.targetId, flatten: true });
+  const sess = (method: string, params: Record<string, unknown> = {}) => cdp.send(method, params, sessionId);
+  await sess("Page.enable"); await sess("Runtime.enable");
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+    try {
+      const st = await sess("Runtime.evaluate", { expression: "document.readyState", returnByValue: true });
+      if (st.result?.value === "complete") break;
+    } catch {}
+  }
+  await new Promise((r) => setTimeout(r, 2500)); // SW install/activate
+  await cdp.send("Target.closeTarget", { targetId: page.targetId });
+}
 
 async function runScenario(id: string): Promise<ScenarioReport> {
   const spec = SCENARIOS.find((s) => s.id === id)!;
@@ -59,6 +72,7 @@ async function runScenario(id: string): Promise<ScenarioReport> {
   return { scenario: id as never, url, startedAt: new Date().toISOString(), durationMs: Math.round(performance.now() - t0), navSucceeded, finalUrl: null, crashDetected, networkFailures: failures as never[], consoleErrors: consoleErrors as never[], uncaughtExceptions: exceptions as never[], perf: {}, fonts: [], pageTextSample, screenshotPath: null, extra: {} };
 }
 
+await prime(cdp, url);
 const scenarios = SCENARIOS.map((s) => s.id);
 const reports: ScenarioReport[] = [];
 for (const id of scenarios) reports.push(await runScenario(id));
@@ -68,4 +82,12 @@ await Deno.writeTextFile(`${outDir}/audit.json`, JSON.stringify(report, null, 2)
 const score = scoreAudit(report, rubric);
 console.log(JSON.stringify(score, null, 2));
 await closeChrome(proc);
-Deno.exit(0);
+return score;
+}
+
+if (import.meta.main) {
+  const url = Deno.args[0] ?? (() => { console.error("usage: run-eval <url> <rubric.json> [--out <dir>]"); Deno.exit(1); })();
+  const rubricPath = Deno.args[1];
+  await runEval(url, rubricPath, Deno.args.includes("--out") ? Deno.args[Deno.args.indexOf("--out") + 1] : "/tmp/web-resilience-eval");
+  Deno.exit(0);
+}

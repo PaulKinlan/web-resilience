@@ -52,13 +52,13 @@ export function scoreAudit(report: AuditReport, rubric: { expectedFindings: Rubr
     perClass[f.class] ??= { total: 0, matched: 0 };
     perClass[f.class].total++;
     const detected = signalDetected(report, f);
-    if (f.expected) {
-      if (detected) { matched++; perClass[f.class].matched++; }
-      else missed.push(f.id);
-    } else {
-      if (detected) falsePositives++; // site claimed resilient but the signal appeared
-      else matched++;
-    }
+    // satisfied = the audit report matches what the rubric expects to be
+    // found (expected:true = the audit SHOULD find this; expected:false = the
+    // audit should NOT find this).
+    const satisfied = f.expected ? detected : !detected;
+    if (satisfied) { matched++; perClass[f.class].matched++; }
+    else if (f.expected) missed.push(f.id);
+    else falsePositives++;
   }
   const total = rubric.expectedFindings.length;
   const recall = matched / Math.max(total, 1);

@@ -1,0 +1,11 @@
+{
+  "fixture": "reference",
+  "version": 2,
+  "expectedFindings": [
+    { "id": "ref-offline-shell", "scenario": "offline", "class": "offline-fallback", "severity": "critical", "signal": "resilient club", "expected": true },
+    { "id": "ref-offline-ui", "scenario": "offline", "class": "offline-fallback", "severity": "major", "signal": "you're offline", "expected": true },
+    { "id": "ref-dns-shell", "scenario": "dns-fail", "class": "dns-fallback", "severity": "critical", "signal": "resilient club", "expected": true },
+    { "id": "ref-font-fallback", "scenario": "block-fonts", "class": "font-display", "severity": "major", "signal": "resilient club", "expected": true },
+    { "id": "ref-js-progressive", "scenario": "block-js", "class": "js-failure", "severity": "critical", "signal": "app loaded", "expected": false, "notPresent": true }
+  ]
+}
