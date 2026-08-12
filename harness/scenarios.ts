@@ -69,6 +69,47 @@ export const SCENARIOS: ScenarioSpec[] = [
   S("hardware-concurrency", "Hardware concurrency = 1", "Single-core device — worker/pool assumptions.", [
     { method: "Emulation.setHardwareConcurrencyOverride", params: { hardwareConcurrency: 1 } },
   ]),
+  S("mobile", "Mobile device (UA + touch + small viewport)", "The low-end phone environment: touch interaction, small screen, mobile UA.", [
+    { method: "Emulation.setUserAgentOverride", params: { userAgent: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36", platform: "Android", mobile: true } },
+    { method: "Emulation.setTouchEmulationEnabled", params: { enabled: true, maxTouchPoints: 5 } },
+    { method: "Emulation.setDeviceMetricsOverride", params: { width: 360, height: 800, deviceScaleFactor: 2.5, mobile: true } },
+  ]),
+  S("geolocation-denied", "Geolocation denied", "Permission denied for geolocation — apps must degrade.", [
+    { method: "Browser.setPermission", params: { permission: { name: "geolocation" }, setting: "denied", origin: "%ORIGIN%" } },
+  ]),
+  S("permissions-denied", "Camera/mic/notifications denied", "Sensitive permissions denied — apps must not break.", [
+    { method: "Browser.grantPermissions", params: { permissions: ["geolocation", "notifications", "audioCapture", "videoCapture"], origin: "%ORIGIN%", state: "denied" } },
+  ]),
+  S("cert-error", "Certificate error (HTTPS fails)", "Bad/expired cert — secure-connection failures.", [
+    { method: "Security.setIgnoreCertificateErrors", params: { ignore: true } },
+  ]),
+  S("data-saver", "Data-saver mode", "Reduced data mode — apps should skip heavy media.", [
+    { method: "Emulation.setDataSaverOverride", params: { saveData: true } },
+  ]),
+  S("cookies-blocked", "Cookies disabled", "No cookies — auth/session-dependent features must degrade.", [
+    { method: "Emulation.setDocumentCookieDisabled", params: { disabled: true } },
+  ]),
+  S("vision-deficiency", "Vision deficiency (blurred)", "Accessibility — low-contrast/blur-dependent UI fails.", [
+    { method: "Emulation.setEmulatedVisionDeficiency", params: { type: "blurredVision" } },
+  ]),
+  S("reduced-motion", "prefers-reduced-motion", "Users with motion sensitivity — animations should be disabled.", [
+    { method: "Emulation.setEmulatedMedia", params: { features: [{ name: "prefers-reduced-motion", value: "reduce" }] } },
+  ]),
+  S("sw-bypass", "Service worker bypassed", "The no-SW path — what a first-time visitor without SW support gets.", [
+    { method: "Network.setBypassServiceWorker", params: { bypass: true } },
+  ]),
+  S("storage-cleared", "Storage cleared mid-session", "IndexedDB/localStorage wiped — apps must rebuild gracefully.", [
+    { method: "Storage.clearDataForOrigin", params: { origin: "%ORIGIN%", storageTypes: "all" } },
+  ]),
+  S("virtual-time", "Virtual time (long session fast-forward)", "Long-lived sessions (chat, analytics) — timers/state across hours.", [
+    { method: "Emulation.setVirtualTimePolicy", params: { policy: "pauseIfNetworkFetchesPending", budget: 5000 } },
+  ]),
+  S("runaway-script", "Runaway script terminated", "An infinite loop is killed — the app must recover, not stay frozen.", [
+    { method: "Runtime.terminateExecution", params: {} },
+  ]),
+  S("locale-rtl", "Locale override (RTL)", "RTL locale — layout/i18n handling.", [
+    { method: "Emulation.setLocaleOverride", params: { locale: "ar" } },
+  ]),
 ];
 
 export const SCENARIO_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));

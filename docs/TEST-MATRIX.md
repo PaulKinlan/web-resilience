@@ -37,6 +37,33 @@ Scenarios run with `--all` or individually with `--scenario <id>`.
 | 14 | `no-cache` | `Network.setCacheDisabled` | Cold start, no HTTP/SW cache | true first-load cost, all subresources refetched | no caching strategy → expensive every visit |
 | 15 | `storage-quota` | `Storage.overrideQuotaForOrigin {quotaSize:0}` | Quota exhausted (low-memory/legacy device) | IndexedDB/localStorage write errors | persistence throws, app breaks |
 | 16 | `hardware-concurrency` | `Emulation.setHardwareConcurrencyOverride {1}` | Single-core device | worker/pool behavior | assumes N cores, spawns too many workers, jank |
+| 17 | `mobile` | UA override (Android) + touch + 360×800@2.5x viewport | Low-end phone | touch targets, viewport, mobile UA paths | desktop-only assumptions, tap-target misses |
+| 18 | `geolocation-denied` | `Browser.setPermission {geolocation:denied}` | Permission denied | feature availability | app breaks instead of degrading |
+| 19 | `permissions-denied` | `Browser.grantPermissions {state:denied}` (geo/notifications/camera/mic) | All sensitive permissions denied | feature availability | app breaks, no fallback UX |
+| 20 | `cert-error` | `Security.setIgnoreCertificateErrors {ignore:true}` | Bad/expired HTTPS cert | secure-connection failures | page unusable, no error path |
+| 21 | `data-saver` | `Emulation.setDataSaverOverride {saveData:true}` | Reduced-data mode | heavy media behavior | loads huge media regardless |
+| 22 | `cookies-blocked` | `Emulation.setDocumentCookieDisabled {disabled:true}` | Cookies disabled | session/auth behavior | auth-dependent features break |
+| 23 | `vision-deficiency` | `Emulation.setEmulatedVisionDeficiency {blurredVision}` | Low-vision user | a11y of contrast/blur-dependent UI | content unreadable |
+| 24 | `reduced-motion` | `Emulation.setEmulatedMedia {prefers-reduced-motion:reduce}` | Motion-sensitivity user | animation behavior | animations play anyway |
+| 25 | `sw-bypass` | `Network.setBypassServiceWorker {bypass:true}` | No-SW path (first visit, unsupported browser) | cache/offline behavior | relies on SW for critical loading |
+| 26 | `storage-cleared` | `Storage.clearDataForOrigin {all}` | Storage wiped mid-session | rebuild-from-scratch behavior | app errors on missing state |
+| 27 | `virtual-time` | `Emulation.setVirtualTimePolicy {budget}` | Long session fast-forward | timers/state across hours | state drift, timer storms |
+| 28 | `runaway-script` | `Runtime.terminateExecution` | Infinite loop killed | post-kill recovery | frozen app, no recovery |
+| 29 | `locale-rtl` | `Emulation.setLocaleOverride {ar}` | RTL locale | layout/i18n | broken RTL layout |
+
+## Domain coverage (why 16 → 29, and what's left)
+
+The 57 CDP domains are the FULL browser surface; scenarios are the
+FAILURE-INJECTION subset. Current coverage by domain: Network (8 scenarios),
+Fetch (1), Emulation (14), Memory (2), Page (2), Browser (2), Storage (2),
+Security (1), Runtime (1), Target (1 — crash detection). Domains NOT used as
+failure injections are inspection/hardware, not failure states (DOM, CSS,
+Overlay, Accessibility, LayerTree, Media, WebAudio, WebAuthn, SmartCard,
+Bluetooth, DeviceOrientation, Tethering, Cast, Extensions, PWA, Preload,
+IndexedDB, CacheStorage, DOMStorage, FileSystem, Autofill, Input, IO,
+HeadlessExperimental, PerformanceTimeline, Profiler, HeapProfiler, Debugger,
+Console, Schema, Ads, Animation, Audits, BackgroundService, CrashReportContext,
+EventBreakpoints, FedCm, DeviceAccess, Log, SystemInfo, Tracing, WebMCP).
 
 ## Interaction plans (extended coverage)
 

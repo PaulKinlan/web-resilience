@@ -60,6 +60,23 @@ testing. Full schema: chrome --headless → http://127.0.0.1:PORT/json/protocol.
 - Browser.getHistograms / Memory.getDOMCounters — counters
 - HeapProfiler (snapshots/retainers) — leak analysis
 
+## Scenario cross-map (which domain powers which test)
+
+| Domain | Scenarios |
+|---|---|
+| Network | offline, throttled-slow/2g, block-js/css/fonts, no-cache, sw-bypass |
+| Fetch | dns-fail (NameNotResolved) |
+| Emulation | cpu-6x/20x, hardware-concurrency, mobile, data-saver, cookies-blocked, vision-deficiency, reduced-motion, virtual-time, locale-rtl |
+| Memory | memory-critical |
+| Page | tab-crash, backgrounded |
+| Browser | geolocation-denied, permissions-denied |
+| Storage | storage-quota, storage-cleared |
+| Security | cert-error |
+| Runtime | runaway-script |
+| Target | crash detection (all scenarios) |
+
+Full matrix: TEST-MATRIX.md.
+
 ## Lifecycle/permission/storage misc
 - Storage.clearDataForOrigin / overrideQuotaForOrigin / getUsageAndQuota
 - Browser.setPermission / grantPermissions / resetPermissions
