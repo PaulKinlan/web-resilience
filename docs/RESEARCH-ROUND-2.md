@@ -197,6 +197,28 @@ Real-engine testing (Safari) is a documented limitation of the CDP-only harness
 - **Fix:** timeout every network call, cancel superseded, treat AbortError as
   control flow (guide: abort-controller-timeouts.md).
 
+## Part F — Incognito/private browsing + Chrome interventions (round 2c, Paul's adds)
+
+### F1. Incognito scope
+- `localStorage` behaves like `sessionStorage` in most private modes (cleared
+  on session end); IndexedDB: in-memory backends (Chrome), in-flux in Firefox;
+  cookies non-persistent; storage partitioned; service workers partitioned.
+- NO universal standard for private-mode storage — vendors differ + it changes.
+- **Audit:** `incognito` scenario — the harness creates a real incognito
+  browser context (`Target.createBrowserContext {incognito:true}`) + reports
+  storage/IDB behavior + permissions state.
+- **Fix:** first-party storage, catch SecurityError/QuotaExceededError, treat
+  "no storage" as a first-class state (guide: heavy-ads-interventions.md covers
+  partitioning).
+
+### F2. Chrome interventions (the full list — see CHROME-INTERVENTIONS.md)
+Heavy-ad (4 MB / 15 s-in-30 s / 60 s budgets → ad frames unloaded), slow-network
+(2G blocks cross-site parser-blocking document.write scripts), storage
+partitioning (third-party + SW), notification abuse (quiet prompts/revocation),
+autoplay policy (audible requires engagement), intrusive-ads (interstitials),
+memory/energy (freeze/discard). Each maps to an audit simulation (throttling
+approximates budgets; incognito = partitioning; launch flags = autoplay).
+
 ## Sources
 - web.dev: tag-best-practices, service-worker-lifecycle, baseline-and-polyfills
 - Catchpoint: Adobe Experience Cloud outage impact; Fastly: resilience in the age

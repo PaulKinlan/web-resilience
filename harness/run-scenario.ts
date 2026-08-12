@@ -35,7 +35,12 @@ for (const id of targets) {
   const startedAt = new Date().toISOString();
   const t0 = performance.now();
 
-  const page = await cdp.send("Target.createTarget", { url: "about:blank" });
+  let browserContextId: string | undefined;
+  if (spec.incognito) {
+    const ctx = await cdp.send("Target.createBrowserContext", { incognito: true });
+    browserContextId = ctx.browserContextId as string;
+  }
+  const page = await cdp.send("Target.createTarget", { url: "about:blank", browserContextId });
   const { sessionId } = await cdp.send("Target.attachToTarget", { targetId: page.targetId, flatten: true });
   const sess = (method: string, params: Record<string, unknown> = {}) => cdp.send(method, params, sessionId);
   await sess("Page.enable"); await sess("Runtime.enable"); await sess("Network.enable"); await sess("Log.enable");
@@ -151,6 +156,7 @@ for (const id of targets) {
 
   for (const u of unsubscribers) u();
   await cdp.send("Target.closeTarget", { targetId: page.targetId });
+  if (browserContextId) await cdp.send("Target.disposeBrowserContext", { browserContextId });
 
   reports.push({
     scenario: id as never,

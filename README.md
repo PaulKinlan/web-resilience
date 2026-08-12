@@ -44,6 +44,7 @@ independent ground truth, never against their own output.
 
 Full CDP capability analysis: docs/CDP-CAPABILITIES.md. The complete test
 matrix (what every scenario does + what pass/fail looks like): docs/TEST-MATRIX.md.
+Chrome interventions (heavy ads, slow-network, partitioning — how to test + fix): docs/CHROME-INTERVENTIONS.md.
 Ecosystem research grounding the matrix: docs/ECOSYSTEM-RESEARCH.md (round 1) + docs/RESEARCH-ROUND-2.md (challenges beyond the articulated set + architectural pattern catalog). Vision
 routing: docs/VISION.md. Guide gaps to author: docs/GUIDES-GAP.md.
 

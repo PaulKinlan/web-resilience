@@ -61,6 +61,7 @@ Scenarios run with `--all` or individually with `--scenario <id>`.
 | 38 | `clipboard-denied` | `Browser.setPermission {clipboard-read:denied}` | Clipboard denied | same | same |
 | 39 | `sensors-denied` | `Browser.setPermission {accelerometer:denied}` | Motion sensors denied | same | same |
 | 40 | `wake-lock-denied` | `Browser.setPermission {screen-wake-lock:denied}` | Wake lock denied | same | same |
+| 43 | `incognito` | `Target.createBrowserContext {incognito:true}` | Private browsing: partitioned non-persistent storage | storage/IDB behavior, permissions state | storage assumptions break, SecurityError uncaught |
 | 41 | `local-fonts-denied` / `window-management-denied` / `idle-detection-denied` | `Browser.setPermission` per name | Local fonts / window placement / idle denied | same | same |
 
 ## Domain coverage (why 16 → 29, and what's left)

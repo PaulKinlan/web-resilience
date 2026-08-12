@@ -11,6 +11,8 @@ export interface ScenarioSpec {
   commands: CdpCommand[];
   /** When set, the harness intercepts requests and fails them with this errorReason. */
   failAllWith?: "NameNotResolved" | "InternetDisconnected" | "TimedOut" | "ConnectionRefused" | "BlockedByClient";
+  /** Run the target in an incognito browser context (partitioned storage). */
+  incognito?: boolean;
 }
 
 const S = (
@@ -152,6 +154,7 @@ export const SCENARIOS: ScenarioSpec[] = [
   S("idle-detection-denied", "Idle detection denied", "Idle-detection denied — presence features must degrade.", [
     { method: "Browser.setPermission", params: { permission: { name: "idle-detection" }, setting: "denied", origin: "%ORIGIN%" } },
   ]),
+  S("incognito", "Incognito mode", "Private browsing: partitioned, non-persistent storage; cookies/IDB/localStorage behavior.", [], undefined, true),
 ];
 
 export const SCENARIO_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));
