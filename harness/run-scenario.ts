@@ -31,6 +31,7 @@ for (const id of targets) {
   const failures: Record<string, unknown>[] = [];
   const consoleErrors: Record<string, unknown>[] = [];
   const exceptions: Record<string, unknown>[] = [];
+  const chooserEvents: Record<string, unknown>[] = [];
   let crashDetected = false;
   const startedAt = new Date().toISOString();
   const t0 = performance.now();
@@ -72,6 +73,9 @@ for (const id of targets) {
 
   // Capture events.
   unsubscribers.push(cdp.on("Network.loadingFailed", (p, sid) => { if (sid === sessionId) failures.push(p); }));
+  if (spec.id === "file-picker") {
+    unsubscribers.push(cdp.on("Page.fileChooserOpened", (p, sid) => { if (sid === sessionId) chooserEvents.push(p); }));
+  }
   unsubscribers.push(cdp.on("Runtime.consoleAPICalled", (p, sid) => { if (sid === sessionId && p.type === "error") consoleErrors.push(p); }));
   unsubscribers.push(cdp.on("Runtime.exceptionThrown", (p, sid) => { if (sid === sessionId) exceptions.push(p); }));
   unsubscribers.push(cdp.on("Target.targetCrashed", (_, sid) => { if (sid === sessionId) crashDetected = true; }));
@@ -173,7 +177,7 @@ for (const id of targets) {
     fonts: fonts as never[],
     pageTextSample,
     screenshotPath,
-    extra: { permissions },
+    extra: { permissions, chooserEvents },
   });
   console.log(`[${id}] nav=${navSucceeded} failures=${failures.length} consoleErrors=${consoleErrors.length} crash=${crashDetected}`);
 }

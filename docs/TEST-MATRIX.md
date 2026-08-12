@@ -62,6 +62,27 @@ Scenarios run with `--all` or individually with `--scenario <id>`.
 | 39 | `sensors-denied` | `Browser.setPermission {accelerometer:denied}` | Motion sensors denied | same | same |
 | 40 | `wake-lock-denied` | `Browser.setPermission {screen-wake-lock:denied}` | Wake lock denied | same | same |
 | 43 | `incognito` | `Target.createBrowserContext {incognito:true}` | Private browsing: partitioned non-persistent storage | storage/IDB behavior, permissions state | storage assumptions break, SecurityError uncaught |
+| 44 | `storage-low` | `Storage.overrideQuotaForOrigin {1 MB}` | Storage filling up — writes fail mid-session | QuotaExceededError handling | uncaught quota errors, data loss |
+| 45 | `file-picker` | `Page.setInterceptFileChooserDialog` + FileChooserOpened capture | File chooser user-cancels/ignores (showOpenFilePicker edge cases) | chooser events, picker promise behavior | app hangs or breaks on cancel/ignore |
+
+## Two lenses of resilience (2026-08-12 framing)
+
+1. **Environmental** — the environment the browser sits in: network (requests,
+   DNS, throttling), low memory, storage (full/quota/cleared/partitioned),
+   incognito, Chrome interventions, crashes/backgrounding.
+2. **Non-environmental (user-action)** — resilience to unexpected USER actions:
+   permission denials (incl. system-level blocks/interventions), file-picker
+   cancels, mid-flow session expiry, optimistic-UI conflicts, double-submits.
+
+Both are in the matrix; the permissions + file-picker + interaction-plan
+scenarios are the user-action lens.
+
+## Payments (future area — monitored, not tested yet)
+
+Payment flows are high-value but testing them needs a sandboxed PSP/stripe-test
+environment and careful setup; Paul's call: keep as a FUTURE area. The checklist
+to implement later: idempotency-first writes, pending/uncertain states, retry
+UX, reconciliation — via interaction plans against a sandboxed checkout.
 | 41 | `local-fonts-denied` / `window-management-denied` / `idle-detection-denied` | `Browser.setPermission` per name | Local fonts / window placement / idle denied | same | same |
 
 ## Domain coverage (why 16 → 29, and what's left)

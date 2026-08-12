@@ -155,6 +155,12 @@ export const SCENARIOS: ScenarioSpec[] = [
     { method: "Browser.setPermission", params: { permission: { name: "idle-detection" }, setting: "denied", origin: "%ORIGIN%" } },
   ]),
   S("incognito", "Incognito mode", "Private browsing: partitioned, non-persistent storage; cookies/IDB/localStorage behavior.", [], undefined, true),
+  S("storage-low", "Storage nearly full", "A small quota (1 MB) — writes fail mid-session as storage fills.", [
+    { method: "Storage.overrideQuotaForOrigin", params: { origin: "%ORIGIN%", quotaSize: 1048576 } },
+  ]),
+  S("file-picker", "File picker intercepted (user cancels/ignores)", "The file-system chooser is intercepted — the picker promise never fulfills (user-cancel edge case); apps must not hang or break.", [
+    { method: "Page.setInterceptFileChooserDialog", params: { enabled: true } },
+  ]),
 ];
 
 export const SCENARIO_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));

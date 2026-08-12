@@ -77,6 +77,15 @@ Loading alone misses interaction-dependent failures. Extend the audit with a
 - Reuse recorded macros when available (Chrome DevTools recorder exports) —
   the harness accepts a list of interaction steps as JSON.
 
+## Source-aware audit (optional)
+
+Pass `--source <dir>` to also analyze the site's SOURCE (like web-uplift):
+derive user flows + expectations from the code (routes, forms, error paths,
+feature flags), then build richer test plans for the interaction scenarios.
+The audit skill uses source to DESIGN tests; the fix skill uses source to
+APPLY them — the find/fix delineation is preserved (both may read the source,
+but the audit still only REPORTS, the fix only CHANGES).
+
 ## Vision guidance
 
 Screenshots are captured for every scenario. **Attach them to your context
