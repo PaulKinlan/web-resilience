@@ -42,6 +42,12 @@ Remaining to author: css-resilience, asset-starvation, low-memory, cold-start,
 storage-quota, single-core, dns-network-failure (the offline guide covers the SW
 side; the pure network-request side needs its own).
 
+Research rounds 1-2 (docs/ECOSYSTEM-RESEARCH.md + docs/RESEARCH-ROUND-2.md) add
+more guide candidates: third-party-dependency-resilience, service-worker-operations
+(stale caches/versioning), spa-deep-link-routing, hydration-consistency,
+realtime-reconnect, checkout-idempotency, session-recovery, microfrontend-federation,
+optimistic-ui-reconciliation, cache-strategy, browser-baseline.
+
 See docs/ECOSYSTEM-RESEARCH.md for the data behind these (SW adoption ~20%,
 China third-party breakpoints, font-display tradeoffs, lifecycle/discard reality,
 low-memory devices).

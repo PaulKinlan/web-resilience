@@ -50,6 +50,8 @@ Scenarios run with `--all` or individually with `--scenario <id>`.
 | 27 | `virtual-time` | `Emulation.setVirtualTimePolicy {budget}` | Long session fast-forward | timers/state across hours | state drift, timer storms |
 | 28 | `runaway-script` | `Runtime.terminateExecution` | Infinite loop killed | post-kill recovery | frozen app, no recovery |
 | 29 | `locale-rtl` | `Emulation.setLocaleOverride {ar}` | RTL locale | layout/i18n | broken RTL layout |
+| 30 | `block-third-party` | `Network.setBlockedURLs` (analytics/TMS/CDN/embed hosts) | Third-party single point of failure (China, tag-manager outage) | third-party load failures, page stall | page depends on third parties that died |
+| 31 | `websocket-drop` | `Network.setBlockedURLs ["wss://*","ws://*"]` | Realtime transport down | reconnect/resubscribe behavior, missed events | no reconnect logic, silent event loss |
 
 ## Domain coverage (why 16 → 29, and what's left)
 

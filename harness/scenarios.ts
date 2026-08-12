@@ -110,6 +110,12 @@ export const SCENARIOS: ScenarioSpec[] = [
   S("locale-rtl", "Locale override (RTL)", "RTL locale — layout/i18n handling.", [
     { method: "Emulation.setLocaleOverride", params: { locale: "ar" } },
   ]),
+  S("block-third-party", "Block third-party hosts", "Analytics/TMS/CDN/embeds fail — the China + tag-manager single-point-of-failure case.", [
+    { method: "Network.setBlockedURLs", params: { urls: ["*://*.google-analytics.com/*", "*://*.googletagmanager.com/*", "*://*.doubleclick.net/*", "*://*.googleadservices.com/*", "*://*.facebook.net/*", "*://*.facebook.com/*", "*://*.cloudflare.com/*", "*://*.jsdelivr.net/*", "*://*.unpkg.com/*", "*://*.cdnjs.cloudflare.com/*"] } },
+  ]),
+  S("websocket-drop", "WebSocket connections blocked", "Realtime transport fails — reconnect/resubscribe behavior.", [
+    { method: "Network.setBlockedURLs", params: { urls: ["wss://*", "ws://*"] } },
+  ]),
 ];
 
 export const SCENARIO_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));
