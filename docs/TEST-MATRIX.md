@@ -52,6 +52,16 @@ Scenarios run with `--all` or individually with `--scenario <id>`.
 | 29 | `locale-rtl` | `Emulation.setLocaleOverride {ar}` | RTL locale | layout/i18n | broken RTL layout |
 | 30 | `block-third-party` | `Network.setBlockedURLs` (analytics/TMS/CDN/embed hosts) | Third-party single point of failure (China, tag-manager outage) | third-party load failures, page stall | page depends on third parties that died |
 | 31 | `websocket-drop` | `Network.setBlockedURLs ["wss://*","ws://*"]` | Realtime transport down | reconnect/resubscribe behavior, missed events | no reconnect logic, silent event loss |
+| 32 | `media-codec-fail` | `Network.setBlockedURLs` (video/audio extensions) | Codec/media CDN failure | media element error + fallback behavior | no fallback poster/message, app error |
+| 33 | `sw-stop` | `ServiceWorker.stopAllWorkers` | SW dies mid-session | page behavior without SW | page relies on SW for critical loading |
+| 34 | `sw-unregister` | `ServiceWorker.enable` (unregister path) | SW removed | no-SW behavior after having had one | page breaks without SW |
+| 35 | `camera-denied` | `Browser.setPermission {camera:denied}` | getUserMedia video denied | feature degradation, unhandled rejection | feature throws, app breaks |
+| 36 | `mic-denied` | `Browser.setPermission {microphone:denied}` | getUserMedia audio denied | same | same |
+| 37 | `screen-capture-denied` | `Browser.setPermission {display-capture:denied}` | getDisplayMedia denied | same | same |
+| 38 | `clipboard-denied` | `Browser.setPermission {clipboard-read:denied}` | Clipboard denied | same | same |
+| 39 | `sensors-denied` | `Browser.setPermission {accelerometer:denied}` | Motion sensors denied | same | same |
+| 40 | `wake-lock-denied` | `Browser.setPermission {screen-wake-lock:denied}` | Wake lock denied | same | same |
+| 41 | `local-fonts-denied` / `window-management-denied` / `idle-detection-denied` | `Browser.setPermission` per name | Local fonts / window placement / idle denied | same | same |
 
 ## Domain coverage (why 16 → 29, and what's left)
 

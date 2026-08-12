@@ -116,6 +116,42 @@ export const SCENARIOS: ScenarioSpec[] = [
   S("websocket-drop", "WebSocket connections blocked", "Realtime transport fails — reconnect/resubscribe behavior.", [
     { method: "Network.setBlockedURLs", params: { urls: ["wss://*", "ws://*"] } },
   ]),
+  S("media-codec-fail", "Media files blocked", "Video/audio assets fail — codec/CDN issue; element fallback behavior.", [
+    { method: "Network.setBlockedURLs", params: { urls: ["*.mp4", "*.webm", "*.mp3", "*.m4a", "*.ogg", "*.opus", "*.wav", "*.aac"] } },
+  ]),
+  S("sw-stop", "Service worker stopped", "The SW dies mid-session (crash, eviction) — page must recover without it.", [
+    { method: "ServiceWorker.stopAllWorkers", params: {} },
+  ]),
+  S("sw-unregister", "Service worker unregistered", "The SW disappears (user cleared site data, version removed) — the page must work without it.", [
+    { method: "ServiceWorker.enable", params: {} },
+  ]),
+  S("camera-denied", "Camera permission denied", "getUserMedia({video}) denied — apps must degrade, not break.", [
+    { method: "Browser.setPermission", params: { permission: { name: "camera" }, setting: "denied", origin: "%ORIGIN%" } },
+  ]),
+  S("mic-denied", "Microphone permission denied", "getUserMedia({audio}) denied — recording/voice features must degrade.", [
+    { method: "Browser.setPermission", params: { permission: { name: "microphone" }, setting: "denied", origin: "%ORIGIN%" } },
+  ]),
+  S("screen-capture-denied", "Screen capture denied", "getDisplayMedia denied — screen-share features must degrade.", [
+    { method: "Browser.setPermission", params: { permission: { name: "display-capture" }, setting: "denied", origin: "%ORIGIN%" } },
+  ]),
+  S("clipboard-denied", "Clipboard permission denied", "Clipboard read/write denied — copy/paste features must degrade.", [
+    { method: "Browser.setPermission", params: { permission: { name: "clipboard-read" }, setting: "denied", origin: "%ORIGIN%" } },
+  ]),
+  S("sensors-denied", "Sensors permission denied", "Accelerometer/gyro denied — motion features must degrade.", [
+    { method: "Browser.setPermission", params: { permission: { name: "accelerometer" }, setting: "denied", origin: "%ORIGIN%" } },
+  ]),
+  S("wake-lock-denied", "Wake lock denied", "Screen-wake-lock denied — apps should still work, just dim.", [
+    { method: "Browser.setPermission", params: { permission: { name: "screen-wake-lock" }, setting: "denied", origin: "%ORIGIN%" } },
+  ]),
+  S("local-fonts-denied", "Local fonts denied", "Local font enumeration denied — design tools must degrade.", [
+    { method: "Browser.setPermission", params: { permission: { name: "local-fonts" }, setting: "denied", origin: "%ORIGIN%" } },
+  ]),
+  S("window-management-denied", "Window management denied", "Multi-window/PWA window placement denied.", [
+    { method: "Browser.setPermission", params: { permission: { name: "window-management" }, setting: "denied", origin: "%ORIGIN%" } },
+  ]),
+  S("idle-detection-denied", "Idle detection denied", "Idle-detection denied — presence features must degrade.", [
+    { method: "Browser.setPermission", params: { permission: { name: "idle-detection" }, setting: "denied", origin: "%ORIGIN%" } },
+  ]),
 ];
 
 export const SCENARIO_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));

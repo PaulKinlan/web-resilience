@@ -160,6 +160,43 @@ fixture (A5), checkout/session/optimistic flows in interaction plans (A8/A9/A11)
 Real-engine testing (Safari) is a documented limitation of the CDP-only harness
 (A13).
 
+## Part E — Permissions, WebRTC, and AbortController (round 2b, Paul's additions)
+
+### E1. Permission denial (the sites-do-this-badly case)
+- `getUserMedia` failure modes: `NotAllowedError` (denied), `NotFoundError`
+  (no device), `NotReadableError` (busy), `OverconstrainedError` (constraints);
+  insecure contexts lack `navigator.mediaDevices` entirely; the user can ignore
+  the prompt leaving the promise pending.
+- Best practice: pre-check with `navigator.permissions.query` (granted/prompt/
+  denied) + observe `onchange`; request after a user action with context
+  (pre-prompt); deny = disabled feature with a reason, never a crash.
+- **Audit:** 9 granular permission scenarios (camera/mic/screen/clipboard/
+  sensors/wake-lock/local-fonts/window-management/idle) + geolocation +
+  all-permissions; the report now captures `navigator.permissions` state per
+  scenario.
+- **Fix:** pre-check + catch-every-rejection + degrade (guide:
+  permission-denial-handling.md).
+
+### E2. WebRTC failure modes
+- ICE: watch `icecandidateerror` (errorCode/errorText — 701 = host candidate
+  unreachable), `iceConnectionState` (failed/disconnected), srflx/relay
+  candidate presence; restricted networks need TURN (TCP/TLS/443 variants).
+- **Audit:** `screen-capture-denied`/`camera-denied` (getUserMedia side) +
+  `websocket-drop` (transport side); full ICE/TURN injection is a documented
+  limitation (UDP not interceptable via CDP Network).
+- **Fix:** graceful call fallback (upload instead of live camera, audio-only,
+  error UX for ICE failure).
+
+### E3. AbortController / AbortSignal
+- Used across fetch, images, WebSockets, and more — for timeouts
+  (`AbortSignal.timeout`), cancelling superseded requests (search/paging),
+  cancellation on unmount/hide, and user cancel. `AbortError` is control flow,
+  not a fault.
+- **Audit:** throttled scenarios reveal hang behavior (no timeout); console
+  shows unhandled AbortError.
+- **Fix:** timeout every network call, cancel superseded, treat AbortError as
+  control flow (guide: abort-controller-timeouts.md).
+
 ## Sources
 - web.dev: tag-best-practices, service-worker-lifecycle, baseline-and-polyfills
 - Catchpoint: Adobe Experience Cloud outage impact; Fastly: resilience in the age

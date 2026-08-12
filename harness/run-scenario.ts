@@ -40,12 +40,9 @@ for (const id of targets) {
   const sess = (method: string, params: Record<string, unknown> = {}) => cdp.send(method, params, sessionId);
   await sess("Page.enable"); await sess("Runtime.enable"); await sess("Network.enable"); await sess("Log.enable");
 
-  // Apply scenario commands (origin substitution for the quota scenario).
-  let origin = "";
-  try {
-    const o = await sess("Runtime.evaluate", { expression: "location.origin", returnByValue: true });
-    origin = (o.result?.value as string) ?? "";
-  } catch { /* about:blank origin */ }
+  // Apply scenario commands (origin substitution — use the TARGET's origin,
+  // not about:blank's, so permission/quota denials apply to the site).
+  const origin = new URL(url).origin;
   const commands = spec.commands.map((c) => ({
     method: c.method,
     params: Object.fromEntries(
@@ -121,6 +118,24 @@ for (const id of targets) {
     pageTextSample = (t.result?.value as string) ?? null;
   } catch { /* no body */ }
 
+  // Permission state query (the audit should report what the page THINKS it has).
+  let permissions: Record<string, unknown> = {};
+  try {
+    const p = await sess("Runtime.evaluate", {
+      expression: `(async () => {
+        const names = ["geolocation","notifications","camera","microphone","display-capture","clipboard-read","clipboard-write","accelerometer","gyroscope","magnetometer","screen-wake-lock","local-fonts","window-management","idle-detection","persistent-storage","ambient-light-sensor"];
+        const out = {};
+        for (const n of names) {
+          try { out[n] = (await navigator.permissions.query({ name: n })).state; } catch { out[n] = "unsupported"; }
+        }
+        return out;
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    permissions = (p.result?.value ?? {}) as Record<string, unknown>;
+  } catch { /* permissions API unavailable */ }
+
   let screenshotPath: string | null = null;
   if (wantScreenshot) {
     try {
@@ -152,7 +167,7 @@ for (const id of targets) {
     fonts: fonts as never[],
     pageTextSample,
     screenshotPath,
-    extra: {},
+    extra: { permissions },
   });
   console.log(`[${id}] nav=${navSucceeded} failures=${failures.length} consoleErrors=${consoleErrors.length} crash=${crashDetected}`);
 }
