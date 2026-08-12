@@ -30,3 +30,18 @@ Checked 2026-08-12 against the installed modern-web-guidance corpus
 
 Each guide: symptoms (what the audit catches), root cause, the canonical pattern,
 a before/after example, and how to re-verify with the audit harness.
+
+## Written so far (2026-08-12) — guides/
+1. offline-fallback (SW app shell + navigation fallback)
+2. font-resilience (font-display swap + metric-compatible fallbacks + preload)
+3. js-resilience (progressive enhancement + defensive init + error surfaces)
+4. backgrounding-lifecycle (freeze/resume, visibilitychange persistence, wasDiscarded)
+5. crash-recovery (state persistence + restore after crash/discard)
+
+Remaining to author: css-resilience, asset-starvation, low-memory, cold-start,
+storage-quota, single-core, dns-network-failure (the offline guide covers the SW
+side; the pure network-request side needs its own).
+
+See docs/ECOSYSTEM-RESEARCH.md for the data behind these (SW adoption ~20%,
+China third-party breakpoints, font-display tradeoffs, lifecycle/discard reality,
+low-memory devices).

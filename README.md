@@ -42,8 +42,10 @@ independent ground truth, never against their own output.
 | storage-quota | Storage.overrideQuotaForOrigin → 0 |
 | hardware-concurrency | Emulation.setHardwareConcurrencyOverride → 1 |
 
-Full CDP capability analysis: docs/CDP-CAPABILITIES.md. Vision routing:
-docs/VISION.md. Guide gaps to author: docs/GUIDES-GAP.md.
+Full CDP capability analysis: docs/CDP-CAPABILITIES.md. The complete test
+matrix (what every scenario does + what pass/fail looks like): docs/TEST-MATRIX.md.
+Ecosystem research grounding the matrix: docs/ECOSYSTEM-RESEARCH.md. Vision
+routing: docs/VISION.md. Guide gaps to author: docs/GUIDES-GAP.md.
 
 ## Quick start
 
