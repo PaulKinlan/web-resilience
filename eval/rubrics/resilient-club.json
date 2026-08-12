@@ -1,0 +1,11 @@
+{
+  "fixture": "resilient-club",
+  "version": 1,
+  "expectedFindings": [
+    { "id": "rc-offline-no-sw", "scenario": "offline", "class": "offline-fallback", "severity": "critical", "signal": "net::err", "expected": true },
+    { "id": "rc-dns-no-sw", "scenario": "dns-fail", "class": "dns-fallback", "severity": "critical", "signal": "name_not_resolved", "expected": true },
+    { "id": "rc-font-error", "scenario": "block-fonts", "class": "font-display", "severity": "major", "signal": "error", "expected": true },
+    { "id": "rc-js-fail", "scenario": "block-js", "class": "js-failure", "severity": "critical", "signal": "app loaded", "expected": true, "notPresent": true },
+    { "id": "rc-js-fail-no-progressive", "scenario": "block-js", "class": "js-failure", "severity": "major", "signal": "you\u2019re offline", "expected": false, "notPresent": true }
+  ]
+}

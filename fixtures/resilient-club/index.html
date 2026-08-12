@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resilient Club — issue-seeded fixture</title>
+  <!-- SEEDED ISSUE 1: render-blocking stylesheet (no critical CSS, no media) -->
+  <link rel="stylesheet" href="styles.css">
+  <!-- SEEDED ISSUE 2: webfont with font-display:block (FOIT — invisible text while the font loads/fails) -->
+  <link rel="preconnect" href="https://fonts.example.invalid" crossorigin>
+  <link href="https://fonts.example.invalid/css2?family=Display+Serif" rel="stylesheet">
+</head>
+<body>
+  <header class="masthead"><h1 class="display-font">Resilient Club</h1></header>
+  <main>
+    <p>We test how websites survive the world failing around them.</p>
+    <button id="join" type="button">Join the club</button>
+    <p id="status" role="status">Ready.</p>
+  </main>
+  <!-- SEEDED ISSUE 3: the entire app depends on one bundle that throws at the top level -->
+  <script src="app.js"></script>
+</body>
+</html>

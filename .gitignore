@@ -1,0 +1,4 @@
+.chrome/
+*.png
+audit.json
+tmp/

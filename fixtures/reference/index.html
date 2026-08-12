@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resilient Club — reference (fixed)</title>
+  <!-- FIXED 1: critical CSS inlined; the full stylesheet loads non-blocking -->
+  <style>body{font-family:"Display Serif",Georgia,serif;margin:0;padding:2rem}.masthead{padding:1rem 0;border-bottom:1px solid #ccc}button{font:inherit;padding:.5rem 1rem}</style>
+  <link rel="stylesheet" href="styles.css" media="print" onload="this.media='all'">
+  <!-- FIXED 2: font-display swap + metric-compatible fallback; the font host may fail → text renders in Georgia immediately -->
+  <link href="https://fonts.example.invalid/css2?family=Display+Serif&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="masthead"><h1 class="display-font">Resilient Club</h1></header>
+  <main>
+    <p>We test how websites survive the world failing around them.</p>
+    <button id="join" type="button">Join the club</button>
+    <p id="status" role="status">Ready.</p>
+  </main>
+  <!-- FIXED 3: resilient init — the button works without JS; JS only enhances -->
+  <noscript><style>#join{display:none}</style></noscript>
+  <script src="app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+// rubric.schema.json — ground truth for a fixture. Written INDEPENDENTLY of the
+// audit skill; the eval harness holds it and the skills never see it.
+
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WebResilienceRubric",
+  "type": "object",
+  "required": ["fixture", "version", "expectedFindings"],
+  "properties": {
+    "fixture": { "type": "string" },
+    "version": { "type": "integer" },
+    "expectedFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "scenario", "class", "severity"],
+        "properties": {
+          "id": { "type": "string" },
+          "scenario": { "type": "string" },
+          "class": {
+            "type": "string",
+            "enum": ["offline-fallback", "dns-fallback", "font-display", "asset-starve", "js-failure", "css-failure", "memory", "backgrounding", "cold-start", "storage-quota", "concurrency"]
+          },
+          "severity": { "type": "string", "enum": ["critical", "major", "minor", "info"] },
+          "signal": { "type": "string", "description": "the observable the audit should catch (error text, status, behavior)" },
+          "notPresent": { "type": "boolean", "description": "true = the ABSENCE of the signal is the finding" },
+          "expected": { "type": "boolean", "description": "true = the issue SHOULD be present (site is broken here); false = the site SHOULD be resilient here" }
+        }
+      }
+    }
+  }
+}
