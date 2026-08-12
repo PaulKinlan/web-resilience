@@ -31,16 +31,32 @@ Checked 2026-08-12 against the installed modern-web-guidance corpus
 Each guide: symptoms (what the audit catches), root cause, the canonical pattern,
 a before/after example, and how to re-verify with the audit harness.
 
-## Written so far (2026-08-12) — guides/
-1. offline-fallback (SW app shell + navigation fallback)
-2. font-resilience (font-display swap + metric-compatible fallbacks + preload)
-3. js-resilience (progressive enhancement + defensive init + error surfaces)
-4. backgrounding-lifecycle (freeze/resume, visibilitychange persistence, wasDiscarded)
-5. crash-recovery (state persistence + restore after crash/discard)
+## Written (2026-08-12) — all 22 guides in guides/
+1. offline-fallback — SW app shell + navigation fallback
+2. font-resilience — font-display swap + metric-compatible fallbacks + preload
+3. js-resilience — progressive enhancement + defensive init + error surfaces
+4. backgrounding-lifecycle — freeze/resume, visibilitychange persistence, wasDiscarded
+5. crash-recovery — state persistence + restore after crash/discard
+6. permission-denial-handling — pre-check + catch-every-rejection + degrade
+7. abort-controller-timeouts — timeout every network call, cancel superseded, AbortError = control flow
+8. heavy-ads-interventions — stay under the intervention budgets
+9. dns-network-failure — navigations/requests failing + retry/backoff + onLine
+10. third-party-dependency-resilience — first-party-first, never render-block on third parties
+11. service-worker-operations — versioned caches, stable SW URL, stale-while-revalidate
+12. realtime-reconnect — reconnection manager, session resume, SSE fallback
+13. asset-starvation — LCP prioritization + lazy media + responsive images
+14. low-memory — heap reduction, content-visibility, state persistence
+15. cold-start-cache-strategy — cache headers, versioned URLs, SW runtime cache
+16. css-resilience — semantic HTML, critical CSS, content usable unstyled
+17. storage-quota — quota-aware writes, estimate(), rebuild-from-scratch
+18. single-core — concurrency-aware pools, yield, worker fallback
+19. session-recovery — 401 intercept → re-auth → retry; draft persistence
+20. optimistic-ui-reconciliation — pending/confirmed, idempotency keys, rebase
+21. spa-deep-link-routing — server rewrites + catch-all route
+22. hydration-consistency — deterministic renders, Suspense isolation
 
-Remaining to author: css-resilience, asset-starvation, low-memory, cold-start,
-storage-quota, single-core, dns-network-failure (the offline guide covers the SW
-side; the pure network-request side needs its own).
+Future (monitored): payments (sandboxed checkout), stale-SW two-version fixture,
+CSP Report-Only fixture, real-engine (WebKit) testing.
 
 Research rounds 1-2 (docs/ECOSYSTEM-RESEARCH.md + docs/RESEARCH-ROUND-2.md) add
 more guide candidates: third-party-dependency-resilience, service-worker-operations

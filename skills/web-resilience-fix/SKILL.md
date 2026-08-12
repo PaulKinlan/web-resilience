@@ -35,6 +35,17 @@ gap so a guide can be authored.
 | Storage quota | Wrap storage writes in try/catch with a quota-aware fallback (in-memory + warn); migrate critical data early; `navigator.storage.estimate()` |
 | Single-core device | Cap worker pools to `navigator.hardwareConcurrency`; don't spawn N workers unconditionally; yield to main thread |
 
+## Guide library (guides/ — 22)
+Every failure class has a guide: symptom → root cause → canonical pattern →
+before/after → re-verify command. Consult the guide for the class you're fixing
+(offline-fallback, font-resilience, js-resilience, backgrounding-lifecycle,
+crash-recovery, permission-denial-handling, abort-controller-timeouts,
+heavy-ads-interventions, dns-network-failure, third-party-dependency-resilience,
+service-worker-operations, realtime-reconnect, asset-starvation, low-memory,
+cold-start-cache-strategy, css-resilience, storage-quota, single-core,
+session-recovery, optimistic-ui-reconciliation, spa-deep-link-routing,
+hydration-consistency).
+
 ## Process
 
 1. **Read the audit report** (`audit.json`). Group findings by failure class.
