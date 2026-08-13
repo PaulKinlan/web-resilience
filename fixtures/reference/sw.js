@@ -1,7 +1,7 @@
 // FIXED: offline shell — scope-relative precache; navigations get the cached
 // shell when the network fails. Works from any mount path (/reference/ etc.).
 const scope = new URL("./", self.registration.scope).pathname;
-const SHELL = [scope, scope + "index.html", scope + "styles.css"];
+const SHELL = [scope, scope + "index.html", scope + "styles.css", scope + "app.js"];
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open("shell-v1").then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });

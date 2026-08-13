@@ -65,6 +65,19 @@ Scenarios run with `--all` or individually with `--scenario <id>`.
 | 44 | `storage-low` | `Storage.overrideQuotaForOrigin {1 MB}` | Storage filling up — writes fail mid-session | QuotaExceededError handling | uncaught quota errors, data loss |
 | 45 | `file-picker` | `Page.setInterceptFileChooserDialog` + FileChooserOpened capture | File chooser user-cancels/ignores (showOpenFilePicker edge cases) | chooser events, picker promise behavior | app hangs or breaks on cancel/ignore |
 
+## Harness caveats (2026-08-13)
+
+- `Network.emulateNetworkConditions {offline:true}` does NOT reliably flip
+  `navigator.onLine` in headless — the offline EVENT may never fire. Apps that
+  rely on `onLine`/the event alone will appear "online" under the offline
+  scenario; this is itself a resilience finding (don't rely on onLine — check
+  request outcomes + SW fallbacks). Rubrics use render/asset signals, not onLine.
+- `Memory.getDOMCounters` needs `--enable-leak-detection` (heap via
+  `Runtime.getHeapUsage` works headless).
+- Permission descriptors use web-platform names ("camera", "display-capture"),
+  not the CDP PermissionType enum.
+- UDP (WebRTC ICE) is not interceptable via CDP Network.
+
 ## Two lenses of resilience (2026-08-12 framing)
 
 1. **Environmental** — the environment the browser sits in: network (requests,
