@@ -1,93 +1,84 @@
 // run-eval.ts — the eval loop: fixture → audit → score vs rubric → (fix) → re-audit → delta.
 // This is the ONLY place ground truth lives relative to the skills. The audit +
 // fix skills never read the rubric; they only see URLs + CDP.
+//
+//   deno run -A eval/run-eval.ts <fixture-url> <rubric-json> [--out <dir>] [--screenshot]
+//
+// The audit itself comes from harness/audit.ts — the same code path the skill
+// runs. Previously this file carried its own copy of the scenario runner, so
+// the rubric was scored against a thinner report (no perf, fonts, permissions
+// or screenshots) than the skill ever produced.
 
-//   deno run -A eval/run-eval.ts <fixture-url> <rubric-json> [--screenshot] [--out <dir>]
+import { runAudit } from "../harness/audit.ts";
+import { type Rubric, scoreAudit, type Score } from "./score.ts";
 
-import { CdpClient } from "../harness/cdpc/cdp-client.ts";
-import { launchChrome, closeChrome } from "../harness/launch.ts";
-import { SCENARIOS } from "../harness/scenarios.ts";
-import type { ScenarioReport, AuditReport } from "../harness/types.ts";
-import { scoreAudit, type RubricFinding } from "./score.ts";
+export type { Rubric };
 
-export async function runEval(url: string, rubricPath: string, outDir = "/tmp/web-resilience-eval") {
-  await Deno.mkdir(outDir, { recursive: true });
-  const rubric = JSON.parse(await Deno.readTextFile(rubricPath)) as { fixture: string; version: number; expectedFindings: RubricFinding[] };
-  const { wsUrl, proc } = await launchChrome(`${outDir}/.chrome`);
-const cdp = new CdpClient(wsUrl);
-await cdp.ready();
 
-async function prime(cdp: CdpClient, url: string) {
-  // Load once + wait for SW install so offline/dns scenarios exercise the shell.
-  const page = await cdp.send("Target.createTarget", { url });
-  const { sessionId } = await cdp.send("Target.attachToTarget", { targetId: page.targetId, flatten: true });
-  const sess = (method: string, params: Record<string, unknown> = {}) => cdp.send(method, params, sessionId);
-  await sess("Page.enable"); await sess("Runtime.enable");
-  for (let i = 0; i < 60; i++) {
-    await new Promise((r) => setTimeout(r, 500));
-    try {
-      const st = await sess("Runtime.evaluate", { expression: "document.readyState", returnByValue: true });
-      if (st.result?.value === "complete") break;
-    } catch {}
-  }
-  await new Promise((r) => setTimeout(r, 2500)); // SW install/activate
-  await cdp.send("Target.closeTarget", { targetId: page.targetId });
-}
+export async function runEval(
+  url: string,
+  rubricPath: string,
+  outDir = "/tmp/web-resilience-eval",
+  options: { screenshot?: boolean } = {},
+): Promise<Score> {
+  const rubric = JSON.parse(await Deno.readTextFile(rubricPath)) as Rubric;
 
-async function runScenario(id: string): Promise<ScenarioReport> {
-  const spec = SCENARIOS.find((s) => s.id === id)!;
-  const failures: Record<string, unknown>[] = [];
-  const consoleErrors: Record<string, unknown>[] = [];
-  const exceptions: Record<string, unknown>[] = [];
-  let crashDetected = false;
-  const t0 = performance.now();
-  const page = await cdp.send("Target.createTarget", { url: "about:blank" });
-  const { sessionId } = await cdp.send("Target.attachToTarget", { targetId: page.targetId, flatten: true });
-  const sess = (method: string, params: Record<string, unknown> = {}) => cdp.send(method, params, sessionId);
-  await sess("Page.enable"); await sess("Runtime.enable"); await sess("Network.enable"); await sess("Log.enable");
-  for (const c of spec.commands) { try { await sess(c.method, c.params); } catch {} }
-  const unsub: Array<() => void> = [];
-  if (spec.failAllWith) {
-    await sess("Fetch.enable", { patterns: [{ urlPattern: "*", requestStage: "Request" }] });
-    unsub.push(cdp.on("Fetch.requestPaused", async (p, sid) => { if (sid === sessionId) { try { await cdp.send("Fetch.failRequest", { requestId: p.requestId, errorReason: spec.failAllWith }, sessionId); } catch {} } }));
-  }
-  unsub.push(cdp.on("Network.loadingFailed", (p, sid) => { if (sid === sessionId) failures.push(p); }));
-  unsub.push(cdp.on("Runtime.consoleAPICalled", (p, sid) => { if (sid === sessionId && p.type === "error") consoleErrors.push(p); }));
-  unsub.push(cdp.on("Runtime.exceptionThrown", (p, sid) => { if (sid === sessionId) exceptions.push(p); }));
-  unsub.push(cdp.on("Target.targetCrashed", (_, sid) => { if (sid === sessionId) crashDetected = true; }));
-  let navSucceeded = false;
-  try {
-    await sess("Page.navigate", { url });
-    for (let i = 0; i < 90; i++) {
-      await new Promise((r) => setTimeout(r, 500));
-      const st = await sess("Runtime.evaluate", { expression: "document.readyState", returnByValue: true });
-      if (st.result?.value === "complete") { navSucceeded = true; break; }
-    }
-  } catch {}
-  await new Promise((r) => setTimeout(r, 1200));
-  let pageTextSample: string | null = null;
-  try { const t = await sess("Runtime.evaluate", { expression: "document.body ? document.body.innerText.slice(0, 1500) : null", returnByValue: true }); pageTextSample = t.result?.value ?? null; } catch {}
-  for (const u of unsub) u();
-  await cdp.send("Target.closeTarget", { targetId: page.targetId });
-  return { scenario: id as never, url, startedAt: new Date().toISOString(), durationMs: Math.round(performance.now() - t0), navSucceeded, finalUrl: null, crashDetected, networkFailures: failures as never[], consoleErrors: consoleErrors as never[], uncaughtExceptions: exceptions as never[], perf: {}, fonts: [], pageTextSample, screenshotPath: null, extra: {} };
-}
+  const report = await runAudit({
+    url,
+    outDir,
+    screenshot: options.screenshot ?? false,
+    // Fixtures ship service workers; without priming, offline/dns scenarios
+    // would score a cold cache and report "no shell" for a site that has one.
+    prime: true,
+  });
 
-await prime(cdp, url);
-const scenarios = SCENARIOS.map((s) => s.id);
-const reports: ScenarioReport[] = [];
-for (const id of scenarios) reports.push(await runScenario(id));
-const report: AuditReport = { url, engine: { chrome: "headless", cdpDomains: 57, runner: "web-resilience-eval" }, generatedAt: new Date().toISOString(), scenarios: reports };
-await Deno.writeTextFile(`${outDir}/audit.json`, JSON.stringify(report, null, 2));
-
-const score = scoreAudit(report, rubric);
-console.log(JSON.stringify(score, null, 2));
-await closeChrome(proc);
-return score;
+  await Deno.writeTextFile(
+    `${outDir}/audit.json`,
+    JSON.stringify(report, null, 2),
+  );
+  return scoreAudit(report, rubric);
 }
 
 if (import.meta.main) {
-  const url = Deno.args[0] ?? (() => { console.error("usage: run-eval <url> <rubric.json> [--out <dir>]"); Deno.exit(1); })();
-  const rubricPath = Deno.args[1];
-  await runEval(url, rubricPath, Deno.args.includes("--out") ? Deno.args[Deno.args.indexOf("--out") + 1] : "/tmp/web-resilience-eval");
+  const [url, rubricPath] = Deno.args;
+  if (!url || !rubricPath) {
+    console.error(
+      "usage: run-eval <url> <rubric.json> [--out <dir>] [--screenshot]\n" +
+        "                [--expect <matched>] [--max-false-positives <n>]",
+    );
+    Deno.exit(1);
+  }
+  const optionValue = (name: string): string | undefined => {
+    const index = Deno.args.indexOf(`--${name}`);
+    return index === -1 ? undefined : Deno.args[index + 1];
+  };
+
+  const outDir = optionValue("out") ?? "/tmp/web-resilience-eval";
+  const score = await runEval(url, rubricPath, outDir, {
+    screenshot: Deno.args.includes("--screenshot"),
+  });
+  console.log(JSON.stringify(score, null, 2));
+
+  // Regression gate. Without this the eval is decorative in CI: it would
+  // report a collapsed score and still exit 0.
+  const failures: string[] = [];
+  const expect = optionValue("expect");
+  if (expect !== undefined && score.matched < Number(expect)) {
+    failures.push(`matched ${score.matched} < expected ${expect}`);
+  }
+  const maxFalsePositives = optionValue("max-false-positives");
+  if (
+    maxFalsePositives !== undefined &&
+    score.falsePositives > Number(maxFalsePositives)
+  ) {
+    failures.push(
+      `falsePositives ${score.falsePositives} > allowed ${maxFalsePositives}`,
+    );
+  }
+  if (failures.length) {
+    console.error(`\nREGRESSION: ${failures.join("; ")}`);
+    Deno.exit(1);
+  }
   Deno.exit(0);
 }
+

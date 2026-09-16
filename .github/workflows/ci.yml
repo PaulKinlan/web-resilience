@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno task check
+      - run: deno task lint
+
+  eval:
+    # The eval is the regression test that matters: it proves the audit still
+    # detects what the independent rubrics say is there. Chrome for Testing is
+    # installed explicitly rather than relying on the runner's browser.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Chrome for Testing
+        run: npx --yes @puppeteer/browsers install chrome@stable
+      - name: Doctor
+        run: ./bin/wr doctor
+      - name: Serve fixtures
+        run: ./bin/wr serve 8080 &
+      - name: Eval — resilient-club (issue-seeded)
+        run: ./bin/wr eval http://127.0.0.1:8080/resilient-club/ eval/rubrics/resilient-club.json --out /tmp/eval-club --expect 5 --max-false-positives 0
+      - name: Eval — reference (resilient)
+        run: ./bin/wr eval http://127.0.0.1:8080/reference/ eval/rubrics/reference.json --out /tmp/eval-ref --expect 5 --max-false-positives 0
+

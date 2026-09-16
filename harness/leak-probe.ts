@@ -8,9 +8,13 @@ import { launchChrome, closeChrome } from "./launch.ts";
 import { planToScript, type InteractionPlan } from "./interactions.ts";
 
 const url = Deno.args[0];
+if (!url) {
+  console.error("usage: leak-probe <url> [--loops 10] [--steps <interactions.json>]");
+  Deno.exit(1);
+}
 const loops = Number(Deno.args[Deno.args.indexOf("--loops") + 1] ?? 10);
 const stepsPath = Deno.args.includes("--steps") ? Deno.args[Deno.args.indexOf("--steps") + 1] : undefined;
-const plan: InteractionPlan | null = stepsPath
+const plan: InteractionPlan = stepsPath
   ? JSON.parse(await Deno.readTextFile(stepsPath))
   : { name: "default", steps: [{ kind: "click", selector: "button" }] };
 
@@ -19,18 +23,26 @@ const cdp = new CdpClient(wsUrl);
 await cdp.ready();
 const page = await cdp.send("Target.createTarget", { url });
 const { sessionId } = await cdp.send("Target.attachToTarget", { targetId: page.targetId, flatten: true });
-const sess = (m: string, p: Record<string, unknown> = {}) => cdp.send(m, p, sessionId);
+const sess = (m: string, p: Record<string, unknown> = {}) => cdp.send(m, p, sessionId as string);
 await sess("Page.enable"); await sess("Runtime.enable");
 for (let i = 0; i < 60; i++) {
   await new Promise((r) => setTimeout(r, 500));
-  try { const st = await sess("Runtime.evaluate", { expression: "document.readyState", returnByValue: true }); if (st.result?.value === "complete") break; } catch {}
+  try {
+    const st = await sess("Runtime.evaluate", { expression: "document.readyState", returnByValue: true });
+    if ((st.result as { value?: string })?.value === "complete") break;
+  } catch { /* target not ready yet */ }
 }
+
 await new Promise((r) => setTimeout(r, 1000));
 
 async function counters() {
   try {
     let heap = -1;
-    try { const h = await sess("Runtime.getHeapUsage"); heap = (h.usedSize as number) ?? -1; } catch {}
+    try {
+      const h = await sess("Runtime.getHeapUsage");
+      heap = (h.usedSize as number) ?? -1;
+    } catch { /* heap usage is unavailable in some headless builds */ }
+
     const c = await sess("Memory.getDOMCounters");
     return {
       nodes: (c.nodes as number) ?? 0,

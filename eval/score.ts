@@ -42,7 +42,13 @@ function signalDetected(report: AuditReport, f: RubricFinding): boolean {
   return f.notPresent ? !present : present;
 }
 
-export function scoreAudit(report: AuditReport, rubric: { expectedFindings: RubricFinding[] }): Score {
+export interface Rubric {
+  fixture: string;
+  version: number;
+  expectedFindings: RubricFinding[];
+}
+
+export function scoreAudit(report: AuditReport, rubric: Rubric): Score {
   const perClass: Record<string, { total: number; matched: number }> = {};
   let matched = 0;
   let falsePositives = 0;

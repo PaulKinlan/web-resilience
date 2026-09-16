@@ -1,0 +1,26 @@
+{
+
+  "tasks": {
+    "doctor": "deno run -A harness/doctor.ts",
+    "audit": "deno run -A harness/run-scenario.ts",
+    "eval": "deno run -A eval/run-eval.ts",
+    "autoresearch": "deno run -A eval/autoresearch.ts",
+    "leak": "deno run -A harness/leak-probe.ts",
+    "serve": "deno run -A fixtures/serve.ts 8080",
+    "check": "deno check harness/*.ts harness/cdpc/*.ts eval/*.ts fixtures/serve.ts",
+    "lint": "deno lint harness eval fixtures",
+    "fmt": "deno fmt --check harness eval fixtures",
+    "ci": "deno task check && deno task lint"
+  },
+  "fmt": {
+    "lineWidth": 90,
+    "exclude": ["fixtures/resilient-club", "fixtures/reference"]
+  },
+  "lint": {
+    "exclude": ["fixtures/resilient-club", "fixtures/reference"]
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.window", "dom", "dom.iterable"]
+  }
+}

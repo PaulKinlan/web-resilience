@@ -11,6 +11,7 @@
 // the score history; the mutation step plugs into the pi-autoresearch pattern.
 
 import { runEval } from "./run-eval.ts";
+import type { Score } from "./score.ts";
 
 interface Round {
   round: number;
@@ -19,16 +20,19 @@ interface Round {
   commit?: string;
 }
 
-export async function measure(fixtureUrl: string, rubricPath: string): Promise<number> {
-  const score = await runEval(fixtureUrl, rubricPath, "/tmp/wr-ar");
-  return score;
+export async function measure(fixtureUrl: string, rubricPath: string): Promise<Score> {
+  return await runEval(fixtureUrl, rubricPath, "/tmp/wr-ar");
 }
 
 export async function main() {
   const rounds = Number(Deno.args[Deno.args.indexOf("--rounds") + 1] ?? 3);
+  // Port must match `deno task serve` (fixtures/serve.ts default).
+  const port = Deno.args.includes("--port")
+    ? Deno.args[Deno.args.indexOf("--port") + 1]
+    : "8080";
   const fixtures = [
-    { url: "http://127.0.0.1:8765/resilient-club/", rubric: "eval/rubrics/resilient-club.json" },
-    { url: "http://127.0.0.1:8765/reference/", rubric: "eval/rubrics/reference.json" },
+    { url: `http://127.0.0.1:${port}/resilient-club/`, rubric: "eval/rubrics/resilient-club.json" },
+    { url: `http://127.0.0.1:${port}/reference/`, rubric: "eval/rubrics/reference.json" },
   ];
   const history: Round[] = [];
   for (let i = 0; i < rounds; i++) {
@@ -40,6 +44,7 @@ export async function main() {
     }
     history.push({ round: i + 1, score: total, note: "baseline (no skill mutation in scaffold)" });
   }
+
   console.log("history:", JSON.stringify(history, null, 2));
   // TODO(paulk): between rounds, a model proposes a mutation to the audit
   // skill or a guide; the harness applies it in a worktree, re-measures, and

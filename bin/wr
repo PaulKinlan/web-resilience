@@ -1,0 +1,120 @@
+#!/bin/sh
+# wr — the single entry point for the web-resilience harness.
+#
+# Exists so that nothing else (skills, docs, CI, your shell history) has to
+# hardcode a path to Deno or to this checkout. Skills invoke `wr audit ...`;
+# where Deno lives and where the repo is cloned stays a local detail.
+#
+# POSIX sh on purpose: corp machines vary wildly in what shell and what
+# GNU/BSD coreutils flavour is available.
+
+set -eu
+
+# --- locate this script's real directory, following symlinks -----------------
+# The Antigravity plugin installs as a symlink into ~/.gemini/config/plugins,
+# so $0 is routinely a link (possibly a chain of them) into the checkout.
+resolve_dir() {
+  target=$1
+  while [ -L "$target" ]; do
+    link=$(readlink "$target")
+    case $link in
+      /*) target=$link ;;
+      *) target=$(dirname "$target")/$link ;;
+    esac
+  done
+  # `cd -P` resolves any symlinked parent directories too.
+  (cd -P "$(dirname "$target")" && pwd)
+}
+
+BIN_DIR=$(resolve_dir "$0")
+WEB_RESILIENCE_HOME=${WEB_RESILIENCE_HOME:-$(dirname "$BIN_DIR")}
+export WEB_RESILIENCE_HOME
+
+# --- locate deno -------------------------------------------------------------
+# `command -v` misses installs that are only on the PATH of an interactive
+# login shell (the deno installer appends to .zshrc, which a non-interactive
+# agent shell never reads) — hence the explicit fallbacks.
+find_deno() {
+  if [ -n "${DENO:-}" ] && [ -x "$DENO" ]; then
+    printf '%s' "$DENO"
+    return 0
+  fi
+  if command -v deno >/dev/null 2>&1; then
+    command -v deno
+    return 0
+  fi
+  for candidate in \
+    "$HOME/.deno/bin/deno" \
+    "/opt/homebrew/bin/deno" \
+    "/usr/local/bin/deno" \
+    "$HOME/.local/bin/deno" \
+    "/usr/bin/deno"; do
+    if [ -x "$candidate" ]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if ! DENO_BIN=$(find_deno); then
+  cat >&2 <<'EOF'
+error: deno not found.
+
+Install one of:
+  brew install deno
+  curl -fsSL https://deno.land/install.sh | sh
+
+Or point at an existing binary:
+  export DENO=/path/to/deno
+EOF
+  exit 127
+fi
+
+usage() {
+  cat <<EOF
+wr — web resilience harness
+
+  wr doctor [--json]              check this machine can run an audit
+  wr audit <url> [options]        run the failure-scenario matrix
+  wr vision <audit-dir>           analyse the screenshots with Gemini
+  wr scenarios                    list the scenario matrix
+  wr eval <url> <rubric.json>     score a fixture against a rubric
+  wr autoresearch [--rounds N]    run the measurement loop
+  wr leak <url> [--loops N]       heap/DOM growth probe
+  wr serve [port]                 serve the local fixtures (default 8080)
+
+  wr audit <url> --all --screenshot --out /tmp/audit-site
+  wr audit <url> --scenario offline,dns-fail --prime
+
+home: $WEB_RESILIENCE_HOME
+deno: $DENO_BIN
+EOF
+}
+
+run() {
+  script=$1
+  shift
+  exec "$DENO_BIN" run -A "$WEB_RESILIENCE_HOME/$script" "$@"
+}
+
+command=${1:-help}
+[ $# -gt 0 ] && shift
+
+case $command in
+  doctor) run harness/doctor.ts "$@" ;;
+  audit) run harness/run-scenario.ts "$@" ;;
+  vision) run harness/vision.ts "$@" ;;
+  scenarios) run harness/run-scenario.ts --list ;;
+  eval) run eval/run-eval.ts "$@" ;;
+  autoresearch) run eval/autoresearch.ts "$@" ;;
+  leak) run harness/leak-probe.ts "$@" ;;
+  serve) run fixtures/serve.ts "$@" ;;
+  help | --help | -h) usage ;;
+  *)
+    echo "error: unknown command '$command'" >&2
+    echo >&2
+    usage >&2
+    exit 1
+    ;;
+esac

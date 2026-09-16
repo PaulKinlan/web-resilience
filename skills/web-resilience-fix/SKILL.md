@@ -1,8 +1,22 @@
+---
+name: web-resilience-fix
+description: >-
+  Map web resilience audit findings to concrete remediation patterns, apply the
+  fixes to the site's source, and re-run the audit to measure the delta. Use
+  when the user has a resilience audit report and wants the issues fixed, or
+  wants a remediation plan for a known failure class — no offline fallback,
+  service worker or app-shell work, font loading failures (FOIT/FOUT),
+  JavaScript or CSS single points of failure, crash and backgrounding state
+  loss, storage quota errors, memory leaks, third-party dependency failures.
+  Companion to web-resilience-audit.
+---
+
 # Web Resilience Fix
 
 Map resilience audit findings to concrete remediation patterns, apply the fixes
 (against the site's source when available), and re-run the audit to measure the
 delta. Companion to web-resilience-audit.
+
 
 ## When to use
 
@@ -52,7 +66,11 @@ hydration-consistency).
 2. **For each class**: pick the patterns above, check modern-web-guidance for a
    matching recipe, and apply fixes to the source when the user provides it
    (or produce a precise remediation plan with file/line targets).
-3. **Fix + retest**: re-run the audit (`deno run -A harness/run-scenario.ts <url> --all --screenshot --out /tmp/reaudit-<site>`) and compare:
+3. **Fix + retest**: re-run the audit with the same launcher the audit skill uses
+   (`WR="${WEB_RESILIENCE_HOME:-$HOME/.gemini/config/plugins/web-resilience-plugin}/bin/wr"`,
+   then `$WR audit <url> --all --prime --screenshot --out /tmp/reaudit-<site>`)
+   and compare:
+
    - network failures under offline/dns-fail (should drop to ~0 with a SW)
    - fonts all `loaded` or graceful fallbacks under block-fonts
    - console errors under block-js/block-css (should be ~0)

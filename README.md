@@ -51,45 +51,67 @@ routing: docs/VISION.md. Guide gaps to author: docs/GUIDES-GAP.md.
 ## Quick start
 
 ```bash
-# Audit a site through every failure scenario (screenshots included)
-deno run -A harness/run-scenario.ts https://your.site/ --all --screenshot --out /tmp/audit-your-site
+# Check this machine can run an audit (Deno, Chrome, a real CDP handshake)
+./bin/wr doctor
 
-# Single scenario
-deno run -A harness/run-scenario.ts https://your.site/ --scenario offline --screenshot
+# Audit a site through every failure scenario (screenshots included)
+./bin/wr audit https://your.site/ --all --screenshot --out /tmp/audit-your-site
+
+# Single scenario (or a comma-separated list); --prime installs the SW first
+./bin/wr audit https://your.site/ --scenario offline,dns-fail --prime --screenshot
 
 # Run the eval against a fixture + rubric
-deno run -A eval/run-eval.ts http://127.0.0.1:8080/resilient-club/ eval/rubrics/resilient-club.json
+./bin/wr eval http://127.0.0.1:8080/resilient-club/ eval/rubrics/resilient-club.json
 
 # Serve the fixtures locally
-deno run -A fixtures/serve.ts 8080
+./bin/wr serve 8080
 
 # Leak probe (heap/node/listener deltas across interaction loops)
-deno run -A harness/leak-probe.ts http://127.0.0.1:8080/resilient-club/ --loops 10
+./bin/wr leak http://127.0.0.1:8080/resilient-club/ --loops 10
 
 # Autoresearch measurement loop
-deno run -A eval/autoresearch.ts --rounds 3
+./bin/wr autoresearch --rounds 3
 ```
 
-## Running in an agent session (pi / Claude Code / Codex)
+`bin/wr` resolves Deno and Chrome for you — including Chrome for Testing on
+machines where managed Chrome refuses remote debugging. `deno task` equivalents
+exist for every command if you prefer.
 
-- In-session: invoke the skills normally (they shell out to the harness). The
+## Install
+
+```bash
+./antigravity/install.sh      # Antigravity / Jetski plugin (symlinked)
+```
+
+Both skills then become discoverable to the agent. Full instructions, including
+the managed/corporate-machine path (`RemoteDebuggingAllowed` policy, Deno off
+the non-interactive `PATH`, symlink restrictions): docs/INSTALL.md.
+
+## Running in an agent session (Antigravity / pi / Claude Code / Codex)
+
+- In-session: invoke the skills normally (they shell out to `bin/wr`). The
   user's existing tokens + installed skills apply; no API keys required.
 - Screenshots: attach to the model when the provider is vision-capable (Claude,
   GPT-4o/5, Gemini); text-only providers (DeepSeek, GLM) rely on the structured
   signals, which fully cover the current finding classes.
 
+
 ## Status
 
 - [x] Scaffold + harness (launch/scenarios/capture/report) — verified against live sites
-- [x] Audit + fix skills (drafts)
-- [x] Eval scorer + runner — broken fixture 4/5 (issues detected), fixed fixture 3/5 (fixes detected); the delta is measurable
+- [x] Audit + fix skills
+- [x] Eval scorer + runner — both fixtures score 5/5, precision 1.0, 0 false positives
 - [x] Fixture 1 (resilient-club, issue-seeded) + reference site (SW shell, font swap, resilient init) + local server
 - [x] Rubrics for both fixtures (v1/v2) + SW prime pass in the eval
 - [x] Interaction plans (harness/interactions.ts — DOM-derived + user-described steps)
 - [x] Leak probe (harness/leak-probe.ts — heap + DOM-counter deltas across loops)
-- [x] First guides (offline-fallback, font-resilience, js-resilience)
+- [x] All 22 guides written (docs/GUIDES-GAP.md — catalog complete)
 - [x] Autoresearch scaffold (eval/autoresearch.ts — measurement loop; mutation step plugs into pi-autoresearch)
-- [ ] Vision provider adapter (Gemini first)
+- [x] Packaging: `bin/wr` launcher, `antigravity/` plugin + installer, skill frontmatter, `wr doctor` (docs/INSTALL.md)
+- [x] Harness hardening: cross-platform Chrome discovery (Chrome for Testing preferred), DevToolsActivePort startup, one shared scenario runner for the audit and the eval, strict `deno check`
+- [x] Vision adapter (harness/vision.ts — Gemini, per-scenario prompts, structured verdicts; `wr vision <audit-dir>`) — live call not yet exercised against a real key
+- [x] CI (deno check + lint, plus the eval gated on `--expect` so a scoring regression fails the build)
 - [ ] Recorder-macro import + DOM-flow auto-derivation integration
-- [ ] Remaining guides per GUIDES-GAP.md (9 left)
 - [ ] Autoresearch mutation loop (model-proposed skill/guide changes)
+- [ ] More fixtures + rubrics (stale-SW, CSP report-only, SPA hydration, third-party dependency)
+

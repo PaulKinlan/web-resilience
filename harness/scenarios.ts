@@ -15,15 +15,20 @@ export interface ScenarioSpec {
   incognito?: boolean;
 }
 
-const S = (
-  id: string,
+// The generic <Id> keeps each scenario's id as a literal type, which is what
+// lets ScenarioId in types.ts be derived from this matrix rather than
+// hand-maintained (it had drifted to 17 of 46 ids).
+const S = <const Id extends string>(
+  id: Id,
   label: string,
   description: string,
   commands: CdpCommand[],
   failAllWith?: ScenarioSpec["failAllWith"],
-): ScenarioSpec => ({ id, label, description, commands, failAllWith });
+  incognito?: boolean,
+) => ({ id, label, description, commands, failAllWith, incognito });
 
-export const SCENARIOS: ScenarioSpec[] = [
+export const SCENARIOS = [
+
   S("baseline", "Baseline (no failure injected)", "Normal load — the control run.", [
     { method: "Network.emulateNetworkConditions", params: { offline: false, latency: 0, downloadThroughput: 0, uploadThroughput: 0, connectionType: "none" } },
   ]),
@@ -161,6 +166,14 @@ export const SCENARIOS: ScenarioSpec[] = [
   S("file-picker", "File picker intercepted (user cancels/ignores)", "The file-system chooser is intercepted — the picker promise never fulfills (user-cancel edge case); apps must not hang or break.", [
     { method: "Page.setInterceptFileChooserDialog", params: { enabled: true } },
   ]),
-];
+] satisfies readonly ScenarioSpec[];
+
+/** Every id in the matrix, as a union — the single source of truth. */
+export type ScenarioId = typeof SCENARIOS[number]["id"];
+
+/** A matrix entry, with its id preserved as a literal type. */
+export type Scenario = typeof SCENARIOS[number];
+
 
 export const SCENARIO_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));
+

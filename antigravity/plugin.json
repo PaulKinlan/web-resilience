@@ -1,0 +1,20 @@
+{
+  "name": "web-resilience-plugin",
+  "version": "0.1.0",
+  "description": "Audit websites against a 46-scenario failure-state matrix (offline, DNS interception, asset loss, throttling, CPU/memory pressure, permission denial, backgrounding) over raw Chrome DevTools Protocol, then apply and verify fixes.",
+  "author": {
+    "name": "Paul Kinlan"
+  },
+  "repository": "https://github.com/PaulKinlan/web-resilience",
+  "license": "Apache-2.0",
+  "keywords": [
+    "resilience",
+    "offline",
+    "cdp",
+    "chrome",
+    "service-worker",
+    "progressive-enhancement",
+    "audit",
+    "eval"
+  ]
+}
