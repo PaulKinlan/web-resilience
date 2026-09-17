@@ -76,13 +76,45 @@ routing: docs/VISION.md. Guide gaps to author: docs/GUIDES-GAP.md.
 # Leak probe (heap/node/listener deltas across interaction loops)
 ./bin/wr leak http://127.0.0.1:8080/resilient-club/ --loops 10
 
-# Autoresearch measurement loop
-./bin/wr autoresearch --rounds 3
+# Autoresearch: propose a change, measure it, keep it only if it wins
+./bin/wr autoresearch --objective harness --rounds 5 \
+  --mutator ./eval/mutators/agentapi-mutator.sh
 ```
 
 `bin/wr` resolves Deno and Chrome for you — including Chrome for Testing on
 machines where managed Chrome refuses remote debugging. `deno task` equivalents
 exist for every command if you prefer.
+
+## Autoresearch
+
+A competitive loop: branch a worktree, let a mutator edit it, measure, keep the
+winner only if it is *strictly* better. Two objectives, because the repo has
+two different things worth improving and they are measured in different places:
+
+| | `--objective harness` | `--objective skill` |
+|---|---|---|
+| Mutable | `harness/` | `skills/`, `guides/` |
+| Measured by | scoring `audit.json` vs the rubric | scoring an **agent's findings report** |
+| Needs `--agent-cmd` | no | yes |
+
+> [!IMPORTANT]
+> The harness objective is blind to prose. `SKILL.md` and the guides never
+> touch an `audit.json`, so under `--objective harness` every skill variant
+> scores identically and "keep the winner" degenerates into keeping the first.
+> Use `--objective skill` for prose.
+
+`eval/` and `fixtures/` are frozen ground truth. A round that changes them is
+discarded **without being scored** — a loop that can edit its own rubric
+optimises the ruler. To confirm the guard is live:
+
+```bash
+./bin/wr autoresearch --rounds 1 --mutator ./eval/mutators/cheat.sh
+# must report ISOLATION VIOLATION and score nothing
+```
+
+Nothing is applied to your working tree; the winner is parked on
+`refs/autoresearch/champion` for review. Contracts, and the limits worth
+knowing (measurement noise, fixture overfitting): eval/mutators/README.md.
 
 ## Install
 
@@ -120,6 +152,7 @@ the non-interactive `PATH`, symlink restrictions): docs/INSTALL.md.
 - [x] CI (deno check + lint, plus the eval gated on `--expect` so a scoring regression fails the build)
 - [x] Interaction coverage: stepped execution with real CDP input events, DevTools Recorder import, `--derive-plan` DOM derivation, per-step network/console damage attribution (fixtures/plans/)
 - [x] Harness fault tolerance: a dead CDP socket self-diagnoses, a failed scenario is reported as `harnessError` instead of aborting the matrix
-- [ ] Autoresearch mutation loop (model-proposed skill/guide changes)
+- [x] Autoresearch mutation loop: worktree isolation, pluggable objective (`harness` scores audit.json, `skill` scores an agent's findings report), enforced frozen ground truth, keep-the-winner on a git ref (eval/mutators/README.md)
+- [x] First unit tests (21) — isolation guard + findings scorer, gated in CI
 - [ ] More fixtures + rubrics (stale-SW, CSP report-only, SPA hydration, third-party dependency)
 
