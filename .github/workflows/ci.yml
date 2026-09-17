@@ -15,6 +15,9 @@ jobs:
           deno-version: v2.x
       - run: deno task check
       - run: deno task lint
+      # The isolation guard is what makes an autoresearch result mean anything.
+      # If it regresses, the loop starts optimising its own rubric.
+      - run: deno task test
 
   eval:
     # The eval is the regression test that matters: it proves the audit still

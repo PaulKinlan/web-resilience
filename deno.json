@@ -1,5 +1,8 @@
 {
 
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.19"
+  },
   "tasks": {
     "doctor": "deno run -A harness/doctor.ts",
     "audit": "deno run -A harness/run-scenario.ts",
@@ -10,7 +13,8 @@
     "check": "deno check harness/*.ts harness/cdpc/*.ts eval/*.ts fixtures/serve.ts",
     "lint": "deno lint harness eval fixtures",
     "fmt": "deno fmt --check harness eval fixtures",
-    "ci": "deno task check && deno task lint"
+    "test": "deno test -A eval/",
+    "ci": "deno task check && deno task lint && deno task test"
   },
   "fmt": {
     "lineWidth": 90,

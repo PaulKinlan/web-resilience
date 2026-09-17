@@ -36,7 +36,15 @@ export async function runEval(
     `${outDir}/audit.json`,
     JSON.stringify(report, null, 2),
   );
-  return scoreAudit(report, rubric);
+  const score = scoreAudit(report, rubric);
+  // Persisted, not just printed: the autoresearch loop needs to read this back
+  // from a subprocess, and scraping stdout would be at the mercy of progress
+  // output.
+  await Deno.writeTextFile(
+    `${outDir}/score.json`,
+    JSON.stringify(score, null, 2),
+  );
+  return score;
 }
 
 if (import.meta.main) {
