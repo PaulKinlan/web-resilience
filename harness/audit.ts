@@ -9,7 +9,14 @@
 import { CdpClient } from "./cdpc/cdp-client.ts";
 import { closeChrome, launchChrome } from "./launch.ts";
 import { SCENARIOS, type Scenario } from "./scenarios.ts";
-import { type InteractionPlan, planToScript } from "./interactions.ts";
+import {
+  derivePlan,
+  type InteractionPlan,
+  runPlan,
+  type Session,
+  type StepResult,
+  surveyDom,
+} from "./interactions.ts";
 import type {
   AuditReport,
   ConsoleEntry,
@@ -18,7 +25,6 @@ import type {
   PerfMetrics,
   ScenarioReport,
 } from "./types.ts";
-
 
 export interface AuditOptions {
   url: string;
@@ -34,8 +40,14 @@ export interface AuditOptions {
   prime?: boolean;
   /** Optional interaction plan driven after load, inside every scenario. */
   plan?: InteractionPlan;
+  /**
+   * Survey the DOM on a clean load and synthesise a plan. Ignored when an
+   * explicit plan is supplied — a described or recorded flow always wins.
+   */
+  derivePlan?: boolean;
   onProgress?: (report: ScenarioReport) => void;
 }
+
 
 /** Milliseconds allowed for late failures (fonts, images, deferred timers). */
 const SETTLE_MS = 1500;
@@ -54,10 +66,40 @@ export async function runAudit(options: AuditOptions): Promise<AuditReport> {
   const scenarios: ScenarioReport[] = [];
   try {
     if (options.prime) await primeServiceWorker(cdp, url);
+
+    // Derive the flow on a CLEAN load. Surveying under an injected failure
+    // would describe a broken DOM and produce a plan that tests nothing.
+    let effective = options;
+    if (!options.plan && options.derivePlan) {
+      try {
+        const derived = await deriveFromLiveDom(cdp, url);
+        effective = { ...options, plan: derived };
+        console.error(
+          `derived plan "${derived.name}" with ${derived.steps.length} step(s)`,
+        );
+      } catch (error) {
+        // Better to audit without a flow than not to audit at all.
+        console.error(`could not derive a plan (${error}); continuing without one`);
+      }
+    }
+
     for (const id of ids) {
       const spec = SCENARIOS.find((s) => s.id === id);
       if (!spec) throw new Error(`unknown scenario: ${id}`);
-      const report = await runScenario(cdp, spec, options);
+
+      // One bad scenario must not cost the other 45. Losing a whole audit to a
+      // stray CDP error would be a resilience bug in the resilience tool.
+      let report: ScenarioReport;
+      if (cdp.closed) {
+        report = unrunScenario(spec, url, "browser gone before this scenario ran");
+      } else {
+        try {
+          report = await runScenario(cdp, spec, effective);
+        } catch (error) {
+          report = unrunScenario(spec, url, String(error));
+          console.error(`[${spec.id}] harness error: ${error}`);
+        }
+      }
       scenarios.push(report);
       options.onProgress?.(report);
     }
@@ -65,6 +107,7 @@ export async function runAudit(options: AuditOptions): Promise<AuditReport> {
     cdp.close();
     await closeChrome(proc);
   }
+
 
   return {
     url,
@@ -79,9 +122,66 @@ export async function runAudit(options: AuditOptions): Promise<AuditReport> {
 }
 
 /**
+ * A scenario the harness could not complete. Emitted rather than omitted so
+ * the gap is visible in the report — a missing scenario reads as "fine".
+ */
+function unrunScenario(
+  spec: Scenario,
+  url: string,
+  harnessError: string,
+): ScenarioReport {
+  return {
+    scenario: spec.id,
+    url,
+    startedAt: new Date().toISOString(),
+    durationMs: 0,
+    navSucceeded: false,
+    finalUrl: null,
+    crashDetected: false,
+    networkFailures: [],
+    consoleErrors: [],
+    uncaughtExceptions: [],
+    perf: {},
+    fonts: [],
+    pageTextSample: null,
+    screenshotPath: null,
+    harnessError,
+    extra: {},
+  };
+}
+
+/**
+ * Load the page normally, survey its interactive surface, and synthesise a
+ * plan. Runs in its own target so nothing it clicks pollutes the matrix.
+ */
+export async function deriveFromLiveDom(
+  cdp: CdpClient,
+  url: string,
+): Promise<InteractionPlan> {
+  const page = await cdp.send("Target.createTarget", { url });
+  const { sessionId } = await cdp.send("Target.attachToTarget", {
+    targetId: page.targetId,
+    flatten: true,
+  });
+  const sess: Session = (method, params = {}) =>
+    cdp.send(method, params, sessionId as string);
+  try {
+    await sess("Page.enable");
+    await sess("Runtime.enable");
+    await waitForLoad(sess);
+    await sleep(500);
+    const survey = await surveyDom(sess);
+    return derivePlan(survey);
+  } finally {
+    await cdp.send("Target.closeTarget", { targetId: page.targetId }).catch(() => {});
+  }
+}
+
+/**
  * Warm the origin so service-worker-backed scenarios exercise the shell.
  * Best-effort: a site without a SW just costs us one page load.
  */
+
 export async function primeServiceWorker(cdp: CdpClient, url: string) {
   const page = await cdp.send("Target.createTarget", { url });
   const { sessionId } = await cdp.send("Target.attachToTarget", {
@@ -228,9 +328,30 @@ export async function runScenario(
 
   await sleep(SETTLE_MS);
 
-  const interactions = options.plan
-    ? await runInteractions(sess, options.plan)
-    : null;
+  // Run the flow with damage attribution: snapshot the failure counters after
+  // each step so "clicking Checkout killed 3 requests" is recoverable from the
+  // report, not just "the flow failed somewhere".
+  let interactions: unknown = null;
+  if (options.plan) {
+    let seenFailures = 0;
+    let seenErrors = 0;
+    const damage: Record<number, { networkFailures: number; consoleErrors: number }> = {};
+    const planResult = await runPlan(sess, options.plan, {
+      onStepComplete: (step: StepResult) => {
+        damage[step.index] = {
+          networkFailures: networkFailures.length - seenFailures,
+          consoleErrors: consoleErrors.length - seenErrors,
+        };
+        seenFailures = networkFailures.length;
+        seenErrors = consoleErrors.length;
+      },
+    });
+    interactions = {
+      ...planResult,
+      steps: planResult.steps.map((step) => ({ ...step, ...damage[step.index] })),
+    };
+  }
+
 
   const perf = await capturePerf(sess);
   const fonts = await captureFonts(sess);
@@ -268,10 +389,6 @@ export async function runScenario(
 
 }
 
-type Session = (
-  method: string,
-  params?: Record<string, unknown>,
-) => Promise<Record<string, unknown>>;
 
 async function waitForLoad(
   sess: Session,
@@ -299,23 +416,6 @@ async function waitForLoad(
   return { complete: false, url: null };
 }
 
-async function runInteractions(sess: Session, plan: InteractionPlan) {
-  try {
-    const result = await sess("Runtime.evaluate", {
-      expression: planToScript(plan),
-      awaitPromise: true,
-      returnByValue: true,
-    });
-    return {
-      plan: plan.name,
-      steps: (result.result as { value?: unknown })?.value ?? null,
-      error: null,
-    };
-  } catch (error) {
-    // A flow that cannot run under the injected failure is itself a finding.
-    return { plan: plan.name, steps: null, error: String(error) };
-  }
-}
 
 async function capturePerf(sess: Session): Promise<PerfMetrics> {
   try {

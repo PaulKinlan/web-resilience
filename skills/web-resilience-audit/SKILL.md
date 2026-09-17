@@ -67,6 +67,9 @@ $WR scenarios
    - `screenshotPath` — PNG per scenario (attach to context when vision-capable)
    - `navSucceeded`, `crashDetected`
    - `extra.permissions` — what the page believes it has been granted
+   - `harnessError` — **the scenario never ran.** The browser died or CDP
+     failed. Every other field is empty because nothing was measured, not
+     because the site coped. Report it as a gap and re-run that scenario.
    - `extra.injectionErrors` — **check this first.** If non-empty, the scenario's
      CDP setup failed and the run does not test what it claims to; report it
      rather than reading the result as a pass.
@@ -93,34 +96,68 @@ $WR scenarios
 
 ## Interaction coverage (test plans)
 
-Loading alone misses interaction-dependent failures. The harness accepts a JSON
-interaction plan (`harness/interactions.ts` — `{ name, steps[] }`) and drives it
-inside every scenario, so you can test a flow under failure, not just a load:
+Loading alone misses interaction-dependent failures. Give the harness a flow and
+it drives it **inside every scenario**, one step at a time:
 
 ```bash
+# A flow you wrote, or a DevTools Recorder export — both work unmodified
 $WR audit <url> --all --plan /tmp/checkout-flow.json
+
+# No flow available: survey the DOM on a clean load and synthesise one
+$WR audit <url> --all --derive-plan
+
 $WR leak <url> --loops 10 --steps /tmp/checkout-flow.json
 ```
 
-Plans can be DOM-derived (the harness extracts forms/buttons/links) or
-user-described; Chrome DevTools recorder macro exports map to the same step
-format. Step results land in `extra.interactions`.
+Plan format (`{ name, steps[] }`), one step per object:
+
+| `kind` | fields | notes |
+|---|---|---|
+| `click` / `hover` | `selector` | real mouse events at the element's box |
+| `type` | `selector`, `value` | |
+| `press` | `key` | `Enter`, `Tab`, `Escape`, arrows |
+| `submit` | `selector` | |
+| `navigate` | `url` | |
+| `wait` | `ms` | |
+| `wait-for` | `selector`, `ms` | |
+| `scroll` | `selector` | |
+| `assert-text` | `selector`, `text` | substring match |
+
+Any step may carry `optional: true` (record the failure, keep going) and a
+`label` (what appears in the report). Selectors are CSS, `text=Buy now`, or
+`aria/Buy now`.
+
+> [!IMPORTANT]
+> Bookend every flow with `assert-text`. Clicks dispatch real input events, so
+> an overlay or a zero-size button does fail — but a button whose **handler
+> never bound** (blocked JS, offline, a dead bundle) clicks perfectly happily
+> and records as a pass. The assertion is what turns that into a finding.
+
+Results land in `extra.interactions`: per-step `ok`/`error`/`durationMs`, the
+index of the step that broke the flow (`failedAt`), and the network failures and
+console errors attributed to **each individual step** — so the report says
+"clicking Checkout killed 3 requests", not merely "the flow failed".
+
+Compare `failedAt` across scenarios. A flow that completes on `baseline` and
+breaks at step 0 under `block-js` has located a single point of failure.
+
+### Choosing the flows to test
+
+- Ask the user which flows matter ("sign in, add to cart, checkout, offline
+  payment retry"). This beats every automatic method.
+- Reuse a recorded macro if one exists: DevTools → Recorder → export JSON.
+- `--derive-plan` is the floor, not a substitute — it finds the primary button
+  and the first form, not your checkout. Use it when you have nothing else.
+
+Worked examples, including one that isolates a fixture's seeded
+single-point-of-failure: `fixtures/plans/README.md`.
 
 ## Leak detection (optional deep-dive, not a matrix scenario)
 
 `$WR leak <url> --loops 10` samples heap + DOM-counter deltas across repeated
 interaction loops — a growing heap/node/listener count is a leak to flag in the
-findings (see web-resilience-fix).
-
-### Choosing the flows to test
-
-- Auto-derive: analyze the DOM (forms, buttons, links, app-shell navigation)
-  and pick the most likely user flows (submit a form, open a dialog, paginate,
-  auth flow).
-- Or let the user describe the flows they care about ("sign in, add to cart,
-  checkout, offline payment retry").
-- Reuse recorded macros when available (Chrome DevTools recorder exports) —
-  the harness accepts a list of interaction steps as JSON.
+findings (see web-resilience-fix). If the flow itself never ran, the verdict is
+`INCONCLUSIVE`, not "no growth".
 
 
 ## Source-aware audit (optional)

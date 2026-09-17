@@ -60,6 +60,13 @@ routing: docs/VISION.md. Guide gaps to author: docs/GUIDES-GAP.md.
 # Single scenario (or a comma-separated list); --prime installs the SW first
 ./bin/wr audit https://your.site/ --scenario offline,dns-fail --prime --screenshot
 
+# Drive a user flow inside every scenario — loading a page tests only a
+# fraction of a site. Accepts our format or a DevTools Recorder export.
+./bin/wr audit https://your.site/ --all --plan fixtures/plans/resilient-club.plan.json
+
+# No plan? Survey the DOM on a clean load and synthesise one
+./bin/wr audit https://your.site/ --all --derive-plan
+
 # Run the eval against a fixture + rubric
 ./bin/wr eval http://127.0.0.1:8080/resilient-club/ eval/rubrics/resilient-club.json
 
@@ -111,7 +118,8 @@ the non-interactive `PATH`, symlink restrictions): docs/INSTALL.md.
 - [x] Harness hardening: cross-platform Chrome discovery (Chrome for Testing preferred), DevToolsActivePort startup, one shared scenario runner for the audit and the eval, strict `deno check`
 - [x] Vision adapter (harness/vision.ts — Gemini, per-scenario prompts, structured verdicts; `wr vision <audit-dir>`) — live call not yet exercised against a real key
 - [x] CI (deno check + lint, plus the eval gated on `--expect` so a scoring regression fails the build)
-- [ ] Recorder-macro import + DOM-flow auto-derivation integration
+- [x] Interaction coverage: stepped execution with real CDP input events, DevTools Recorder import, `--derive-plan` DOM derivation, per-step network/console damage attribution (fixtures/plans/)
+- [x] Harness fault tolerance: a dead CDP socket self-diagnoses, a failed scenario is reported as `harnessError` instead of aborting the matrix
 - [ ] Autoresearch mutation loop (model-proposed skill/guide changes)
 - [ ] More fixtures + rubrics (stale-SW, CSP report-only, SPA hydration, third-party dependency)
 

@@ -10,7 +10,7 @@
 
 import { runAudit } from "./audit.ts";
 import { SCENARIOS } from "./scenarios.ts";
-import type { InteractionPlan } from "./interactions.ts";
+import { parsePlan } from "./interactions.ts";
 
 const USAGE = `usage: run-scenario <url> [options]
 
@@ -19,8 +19,11 @@ const USAGE = `usage: run-scenario <url> [options]
   --out <dir>        output directory (default: /tmp/web-resilience-audit)
   --screenshot       capture a PNG per scenario
   --prime            warm the origin first so service workers install
-  --plan <file>      JSON interaction plan to drive inside every scenario
+  --plan <file>      interaction plan to drive inside every scenario
+                     (our format, or a DevTools Recorder export)
+  --derive-plan      survey the DOM on a clean load and synthesise a flow
   --list             print the scenario matrix and exit`;
+
 
 function flag(args: string[], name: string): boolean {
   return args.includes(`--${name}`);
@@ -40,6 +43,14 @@ function option(args: string[], name: string): string | undefined {
 
 if (import.meta.main) {
   const args = Deno.args;
+
+  // Safety net. A stray rejection anywhere in the CDP plumbing used to abort
+  // the process and discard an otherwise-complete audit. Report it loudly,
+  // but never let it cost the run.
+  globalThis.addEventListener("unhandledrejection", (event) => {
+    event.preventDefault();
+    console.error(`warning: unhandled rejection ignored: ${event.reason}`);
+  });
 
   if (flag(args, "list")) {
     for (const s of SCENARIOS) console.log(`${s.id.padEnd(26)} ${s.label}`);
@@ -65,9 +76,7 @@ if (import.meta.main) {
   }
 
   const planPath = option(args, "plan");
-  const plan = planPath
-    ? JSON.parse(await Deno.readTextFile(planPath)) as InteractionPlan
-    : undefined;
+  const plan = planPath ? parsePlan(await Deno.readTextFile(planPath)) : undefined;
 
   const outDir = option(args, "out") ?? "/tmp/web-resilience-audit";
 
@@ -78,15 +87,29 @@ if (import.meta.main) {
     screenshot: flag(args, "screenshot"),
     prime: flag(args, "prime"),
     plan,
+    derivePlan: flag(args, "derive-plan"),
     onProgress: (r) => {
+      if (r.harnessError) {
+        console.log(`[${r.scenario}] HARNESS-ERROR ${r.harnessError}`);
+        return;
+      }
       const injection = (r.extra.injectionErrors as string[] | undefined) ?? [];
+      const flow = r.extra.interactions as
+        | { steps: Array<{ ok: boolean }>; failedAt: number | null }
+        | undefined;
+      const flowNote = flow
+        ? ` flow=${flow.steps.filter((s) => s.ok).length}/${flow.steps.length}` +
+          (flow.failedAt !== null ? ` BROKE@${flow.failedAt}` : "")
+        : "";
       console.log(
         `[${r.scenario}] nav=${r.navSucceeded} failures=${r.networkFailures.length} ` +
           `consoleErrors=${r.consoleErrors.length} crash=${r.crashDetected}` +
+          flowNote +
           (injection.length ? ` INJECTION-FAILED=${injection.length}` : ""),
       );
     },
   });
+
 
   const outPath = `${outDir}/audit.json`;
   await Deno.writeTextFile(outPath, JSON.stringify(report, null, 2));

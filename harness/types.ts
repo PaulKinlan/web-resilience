@@ -65,6 +65,12 @@ export interface ScenarioReport {
   fonts: FontProbe[];
   pageTextSample: string | null; // truncated body text — lets text models analyze
   screenshotPath: string | null;
+  /**
+   * Set when the harness itself failed to complete this scenario (browser
+   * died, CDP timed out). Distinct from a finding: an absent report must never
+   * be read as "the site coped".
+   */
+  harnessError?: string;
   extra: Record<string, unknown>;
 }
 

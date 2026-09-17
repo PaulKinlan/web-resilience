@@ -1,0 +1,42 @@
+{
+  "title": "join-the-club (recorder)",
+  "steps": [
+    {
+      "type": "setViewport",
+      "width": 1280,
+      "height": 720,
+      "deviceScaleFactor": 1,
+      "isMobile": false,
+      "hasTouch": false,
+      "isLandscape": false
+    },
+    {
+      "type": "navigate",
+      "url": "http://127.0.0.1:8080/resilient-club/",
+      "assertedEvents": [
+        {
+          "type": "navigation",
+          "url": "http://127.0.0.1:8080/resilient-club/",
+          "title": "Resilient Club"
+        }
+      ]
+    },
+    {
+      "type": "click",
+      "target": "main",
+      "selectors": [
+        ["#join"],
+        ["aria/Join the club"],
+        ["text/Join the club"],
+        ["xpath///*[@id=\"join\"]"]
+      ],
+      "offsetX": 40,
+      "offsetY": 12
+    },
+    {
+      "type": "waitForElement",
+      "selectors": [["#status"]],
+      "timeout": 5000
+    }
+  ]
+}

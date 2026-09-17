@@ -5,17 +5,31 @@
 
 import { CdpClient } from "./cdpc/cdp-client.ts";
 import { launchChrome, closeChrome } from "./launch.ts";
-import { planToScript, type InteractionPlan } from "./interactions.ts";
+import { parsePlan, runPlan, type InteractionPlan } from "./interactions.ts";
 
 const url = Deno.args[0];
 if (!url) {
   console.error("usage: leak-probe <url> [--loops 10] [--steps <interactions.json>]");
   Deno.exit(1);
 }
-const loops = Number(Deno.args[Deno.args.indexOf("--loops") + 1] ?? 10);
-const stepsPath = Deno.args.includes("--steps") ? Deno.args[Deno.args.indexOf("--steps") + 1] : undefined;
+
+/** Read `--name value`. `indexOf` returns -1 when absent, which would other-
+ * wise read args[0] (the url) as the value. */
+function option(name: string): string | undefined {
+  const index = Deno.args.indexOf(`--${name}`);
+  return index === -1 ? undefined : Deno.args[index + 1];
+}
+
+// `??` does not catch NaN, so `Number(url) ?? 10` used to yield NaN here and
+// `i < NaN` is false — the probe ran zero loops and reported on nothing.
+const requestedLoops = Number(option("loops"));
+const loops = Number.isFinite(requestedLoops) && requestedLoops > 0 ? requestedLoops : 10;
+
+const stepsPath = option("steps");
+// parsePlan, not JSON.parse: --steps should accept a DevTools Recorder export
+// exactly as `audit --plan` does.
 const plan: InteractionPlan = stepsPath
-  ? JSON.parse(await Deno.readTextFile(stepsPath))
+  ? parsePlan(await Deno.readTextFile(stepsPath))
   : { name: "default", steps: [{ kind: "click", selector: "button" }] };
 
 const { wsUrl, proc } = await launchChrome("/tmp/wr-leak-chrome", ["--enable-leak-detection"]);
@@ -55,13 +69,18 @@ async function counters() {
 }
 
 const before = await counters();
-const script = planToScript(plan);
+let loopsCompleted = 0;
+let lastFlowError: string | null = null;
 for (let i = 0; i < loops; i++) {
-  try {
-    await sess("Runtime.evaluate", { expression: script, awaitPromise: true, returnByValue: true });
-  } catch { /* flow failed — record + continue */ }
+  const result = await runPlan(sess, plan);
+  if (result.completed) {
+    loopsCompleted++;
+  } else {
+    lastFlowError = result.steps[result.failedAt ?? 0]?.error ?? "unknown";
+  }
   await new Promise((r) => setTimeout(r, 400)); // let GC/observers settle
 }
+
 try { await sess("Memory.prepareForLeakDetection"); } catch { /* optional — some headless builds lack it */ }
 await new Promise((r) => setTimeout(r, 1000));
 const after = await counters();
@@ -71,11 +90,26 @@ const delta = {
   jsEventListeners: after.jsEventListeners - before.jsEventListeners,
   jsHeapSize: after.jsHeapSize - before.jsHeapSize,
 };
-console.log(JSON.stringify({ before, after, delta, loops, plan: plan.name }, null, 2));
-// A growing node/listener count across loops = a leak to fix.
-const verdict = delta.nodes > 50 || delta.jsEventListeners > 20
+console.log(JSON.stringify({
+  before,
+  after,
+  delta,
+  loops,
+  loopsCompleted,
+  lastFlowError,
+  plan: plan.name,
+}, null, 2));
+
+// A growing node/listener count across loops = a leak to fix. But if the flow
+// never actually ran, "no growth" means nothing — say so instead of implying
+// the page is clean.
+const verdict = loopsCompleted === 0
+  ? `INCONCLUSIVE — the flow never completed (${lastFlowError ?? "unknown"})`
+  : delta.nodes > 50 || delta.jsEventListeners > 20
   ? "LEAK SUSPECTED"
   : "no growth";
+
 console.log("verdict:", verdict);
+cdp.close();
 await closeChrome(proc);
 Deno.exit(0);

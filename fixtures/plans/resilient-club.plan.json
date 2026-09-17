@@ -1,0 +1,28 @@
+{
+  "name": "join-the-club",
+  "steps": [
+    {
+      "kind": "assert-text",
+      "selector": "#status",
+      "text": "App loaded",
+      "label": "javascript booted (this is the single point of failure)"
+    },
+    {
+      "kind": "click",
+      "selector": "#join",
+      "label": "join the club"
+    },
+    {
+      "kind": "wait",
+      "ms": 800,
+      "label": "let the POST resolve or fail"
+    },
+    {
+      "kind": "assert-text",
+      "selector": "#status",
+      "text": "Welcome",
+      "optional": true,
+      "label": "optimistic confirmation (offline replaces this with the error copy, which is correct)"
+    }
+  ]
+}
