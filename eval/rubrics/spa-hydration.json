@@ -1,0 +1,47 @@
+{
+  "fixture": "spa-hydration",
+  "version": 1,
+  "expectedFindings": [
+    {
+      "id": "spa-js-spof",
+      "scenario": "block-js",
+      "class": "js-failure",
+      "severity": "critical",
+      "signal": "loading your ledger",
+      "expected": true
+    },
+    {
+      "id": "spa-offline-no-shell",
+      "scenario": "offline",
+      "class": "offline-fallback",
+      "severity": "critical",
+      "signal": "err_internet_disconnected",
+      "expected": true
+    },
+    {
+      "id": "spa-offline-content-absent",
+      "scenario": "offline",
+      "class": "spa-shell",
+      "severity": "critical",
+      "signal": "balance: 412.80",
+      "expected": true,
+      "notPresent": true
+    },
+    {
+      "id": "spa-dns-no-fallback",
+      "scenario": "dns-fail",
+      "class": "dns-fallback",
+      "severity": "critical",
+      "signal": "err_name_not_resolved",
+      "expected": true
+    },
+    {
+      "id": "spa-css-degrades-cleanly",
+      "scenario": "block-css",
+      "class": "css-failure",
+      "severity": "info",
+      "signal": "balance: 412.80",
+      "expected": true
+    }
+  ]
+}

@@ -42,4 +42,14 @@ jobs:
         run: ./bin/wr eval http://127.0.0.1:8080/resilient-club/ eval/rubrics/resilient-club.json --out /tmp/eval-club --expect 5 --max-false-positives 0
       - name: Eval — reference (resilient)
         run: ./bin/wr eval http://127.0.0.1:8080/reference/ eval/rubrics/reference.json --out /tmp/eval-ref --expect 5 --max-false-positives 0
+      - name: Eval — spa-hydration (client-rendered)
+        run: ./bin/wr eval http://127.0.0.1:8080/spa-hydration/ eval/rubrics/spa-hydration.json --out /tmp/eval-spa --expect 5 --max-false-positives 0
+      - name: Eval — sw-dependency (service worker as infrastructure)
+        run: ./bin/wr eval http://127.0.0.1:8080/sw-dependency/ eval/rubrics/sw-dependency.json --out /tmp/eval-sw --expect 5 --max-false-positives 0
+      - name: Eval — csp-report-only (latent policy break)
+        run: ./bin/wr eval http://127.0.0.1:8080/csp-report-only/ eval/rubrics/csp-report-only.json --out /tmp/eval-csp --expect 5 --max-false-positives 0
+      # third-party is deliberately NOT gated here: its baseline needs a live
+      # CDN, and a network blip would read as a detection regression.
+      # Run it locally with:
+      #   ./bin/wr eval http://127.0.0.1:8080/third-party/ eval/rubrics/third-party.json
 

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ledger — SPA hydration fixture</title>
+  <link rel="stylesheet" href="/spa-hydration/styles.css">
+</head>
+<body>
+  <!--
+    SEEDED ISSUE 1: the shell is a spinner, not content. Every route, including
+    deep links, serves this same HTML. If the bundle does not run the user is
+    left looking at "Loading your ledger…" forever, with no noscript fallback
+    and no server-rendered content to fall back to.
+  -->
+  <div id="root">
+    <p class="spinner">Loading your ledger…</p>
+  </div>
+
+  <!--
+    SEEDED ISSUE 2: no <noscript>. A no-JS visitor gets the spinner and no
+    explanation of why nothing is happening.
+  -->
+
+  <script src="/spa-hydration/app.js" defer></script>
+</body>
+</html>

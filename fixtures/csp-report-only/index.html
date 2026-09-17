@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gazette — CSP report-only fixture</title>
+
+  <!--
+    SEEDED ISSUE 1: an inline <style>. The report-only policy says
+    style-src 'self', so this is reported but not blocked. Enforce the policy
+    and the page loses its layout.
+  -->
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; padding: 2rem; line-height: 1.5; max-width: 42rem; }
+    h1 { font-size: 1.6rem; margin: 0 0 .5rem; }
+    .lede { color: #555; }
+    #subscribe { padding: .5rem 1rem; }
+  </style>
+</head>
+<body>
+  <h1>The Gazette</h1>
+  <p class="lede">Reporting on things that have not broken yet.</p>
+
+  <!--
+    SEEDED ISSUE 2: a style attribute. Also blocked by style-src 'self' unless
+    'unsafe-inline' is added.
+  -->
+  <p style="color: #b00;">This notice is styled inline.</p>
+
+  <button id="subscribe" type="button">Subscribe</button>
+  <p id="status" role="status">Ready.</p>
+
+  <!--
+    SEEDED ISSUE 3: an inline <script>. script-src 'self' reports this today
+    and would break the button entirely once the policy is enforced. This is
+    the dangerous one: the site looks fine in report-only mode, so the
+    violation is easy to ignore until enforcement day.
+  -->
+  <script>
+    document.getElementById("subscribe").addEventListener("click", function () {
+      document.getElementById("status").textContent = "Subscribed.";
+    });
+  </script>
+
+  <script src="/csp-report-only/app.js" defer></script>
+</body>
+</html>

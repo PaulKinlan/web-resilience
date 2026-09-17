@@ -34,6 +34,9 @@ function signalDetected(report: AuditReport, f: RubricFinding): boolean {
     failures: sc.networkFailures,
     consoleErrors: sc.consoleErrors,
     exceptions: sc.uncaughtExceptions,
+    // Browser-generated diagnostics. CSP violations appear ONLY here, so
+    // without this a report-only policy is unscoreable.
+    browserLogs: sc.browserLogs ?? [],
     fonts: sc.fonts,
     page: (sc.pageTextSample ?? "").slice(0, 500),
   }).toLowerCase();

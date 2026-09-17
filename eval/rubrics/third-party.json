@@ -1,0 +1,47 @@
+{
+  "fixture": "third-party",
+  "version": 1,
+  "expectedFindings": [
+    {
+      "id": "tp-cdn-blocked",
+      "scenario": "block-third-party",
+      "class": "third-party-spof",
+      "severity": "critical",
+      "signal": "cdn.jsdelivr.net",
+      "expected": true
+    },
+    {
+      "id": "tp-claims-loaded-anyway",
+      "scenario": "block-third-party",
+      "class": "ux-feedback",
+      "severity": "major",
+      "signal": "app loaded",
+      "expected": true
+    },
+    {
+      "id": "tp-baseline-loads",
+      "scenario": "baseline",
+      "class": "third-party-load",
+      "severity": "info",
+      "signal": "app loaded",
+      "expected": true
+    },
+    {
+      "id": "tp-no-js-no-init",
+      "scenario": "block-js",
+      "class": "js-failure",
+      "severity": "major",
+      "signal": "app loaded",
+      "expected": true,
+      "notPresent": true
+    },
+    {
+      "id": "tp-no-offline-shell",
+      "scenario": "offline",
+      "class": "offline-fallback",
+      "severity": "critical",
+      "signal": "err_internet_disconnected",
+      "expected": true
+    }
+  ]
+}

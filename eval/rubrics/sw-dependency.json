@@ -1,0 +1,46 @@
+{
+  "fixture": "sw-dependency",
+  "version": 1,
+  "expectedFindings": [
+    {
+      "id": "swdep-bypass-api-404",
+      "scenario": "sw-bypass",
+      "class": "sw-dependency",
+      "severity": "critical",
+      "signal": "stock request failed: 404",
+      "expected": true
+    },
+    {
+      "id": "swdep-bypass-stuck-placeholder",
+      "scenario": "sw-bypass",
+      "class": "ux-feedback",
+      "severity": "major",
+      "signal": "checking stock",
+      "expected": true
+    },
+    {
+      "id": "swdep-unregister-breaks",
+      "scenario": "sw-unregister",
+      "class": "sw-dependency",
+      "severity": "critical",
+      "signal": "checking stock",
+      "expected": true
+    },
+    {
+      "id": "swdep-offline-shell-works",
+      "scenario": "offline",
+      "class": "offline-fallback",
+      "severity": "info",
+      "signal": "blue widget",
+      "expected": true
+    },
+    {
+      "id": "swdep-sw-stop-recovers",
+      "scenario": "sw-stop",
+      "class": "sw-resilience",
+      "severity": "info",
+      "signal": "blue widget",
+      "expected": true
+    }
+  ]
+}

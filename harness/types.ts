@@ -33,6 +33,25 @@ export interface ConsoleEntry {
   [key: string]: unknown;
 }
 
+/**
+ * Log.entryAdded — messages the BROWSER generates, as distinct from ones the
+ * page's own code calls console.error() for.
+ *
+ * This is where CSP violations, CORS rejections, mixed content, deprecations
+ * and interventions live. The audit enabled the Log domain but never
+ * subscribed, so none of it reached a report: a page could be reporting CSP
+ * violations on every load and the audit would call it clean.
+ */
+export interface BrowserLogEntry {
+  /** verbose | info | warning | error */
+  level?: string;
+  /** xml | javascript | network | security | deprecation | intervention | ... */
+  source?: string;
+  text?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+
 export interface PerfMetrics {
   /** Performance.getMetrics, keyed by metric name. */
   metrics?: Record<string, number>;
@@ -61,6 +80,8 @@ export interface ScenarioReport {
   networkFailures: NetworkFailure[];
   consoleErrors: ConsoleEntry[];
   uncaughtExceptions: ConsoleEntry[];
+  /** Browser-generated diagnostics: CSP, CORS, mixed content, deprecations. */
+  browserLogs: BrowserLogEntry[];
   perf: PerfMetrics;
   fonts: FontProbe[];
   pageTextSample: string | null; // truncated body text — lets text models analyze

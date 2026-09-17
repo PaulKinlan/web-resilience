@@ -1,6 +1,6 @@
 {
   "fixture": "reference",
-  "version": 4,
+  "version": 5,
   "expectedFindings": [
     {
       "id": "ref-offline-shell",
@@ -15,8 +15,9 @@
       "scenario": "offline",
       "class": "offline-fallback",
       "severity": "major",
-      "signal": "app loaded",
-      "expected": true
+      "signal": "ready.",
+      "expected": true,
+      "notPresent": true
     },
     {
       "id": "ref-dns-shell",

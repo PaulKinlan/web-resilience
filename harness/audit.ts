@@ -19,6 +19,7 @@ import {
 } from "./interactions.ts";
 import type {
   AuditReport,
+  BrowserLogEntry,
   ConsoleEntry,
   FontProbe,
   NetworkFailure,
@@ -141,6 +142,7 @@ function unrunScenario(
     networkFailures: [],
     consoleErrors: [],
     uncaughtExceptions: [],
+    browserLogs: [],
     perf: {},
     fonts: [],
     pageTextSample: null,
@@ -207,6 +209,7 @@ export async function runScenario(
   const networkFailures: NetworkFailure[] = [];
   const consoleErrors: ConsoleEntry[] = [];
   const uncaughtExceptions: ConsoleEntry[] = [];
+  const browserLogs: BrowserLogEntry[] = [];
   const chooserEvents: Record<string, unknown>[] = [];
 
   let crashDetected = false;
@@ -304,6 +307,12 @@ export async function runScenario(
     cdp.on("Runtime.exceptionThrown", (p, sid) => {
       if (mine(sid)) uncaughtExceptions.push(p);
     }),
+    // Log.enable was already called but nothing listened, so every
+    // browser-generated diagnostic was discarded. CSP violations in
+    // particular are reported ONLY here.
+    cdp.on("Log.entryAdded", (p, sid) => {
+      if (mine(sid) && p.entry) browserLogs.push(p.entry as BrowserLogEntry);
+    }),
     cdp.on("Target.targetCrashed", (_p, sid) => {
       if (mine(sid)) crashDetected = true;
     }),
@@ -380,6 +389,7 @@ export async function runScenario(
     networkFailures,
     consoleErrors,
     uncaughtExceptions,
+    browserLogs,
     perf,
     fonts,
     pageTextSample,

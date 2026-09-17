@@ -130,7 +130,15 @@ export const SCENARIOS = [
     { method: "ServiceWorker.stopAllWorkers", params: {} },
   ]),
   S("sw-unregister", "Service worker unregistered", "The SW disappears (user cleared site data, version removed) — the page must work without it.", [
+    // This used to be `ServiceWorker.enable` alone, which enables the domain
+    // and unregisters precisely nothing: the scenario reported a pass for
+    // every site because the worker was still there.
+    //
+    // clearDataForOrigin rather than ServiceWorker.unregister because the
+    // latter needs the exact scopeURL, which the harness cannot know for an
+    // arbitrary site.
     { method: "ServiceWorker.enable", params: {} },
+    { method: "Storage.clearDataForOrigin", params: { origin: "%ORIGIN%", storageTypes: "service_workers" } },
   ]),
   S("camera-denied", "Camera permission denied", "getUserMedia({video}) denied — apps must degrade, not break.", [
     { method: "Browser.setPermission", params: { permission: { name: "camera" }, setting: "denied", origin: "%ORIGIN%" } },

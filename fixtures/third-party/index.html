@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confetti Co — third-party dependency fixture</title>
+  <link rel="stylesheet" href="/third-party/styles.css">
+</head>
+<body>
+  <h1>Confetti Co</h1>
+
+  <!--
+    SEEDED ISSUE 1: the primary call to action depends on a script from a
+    third-party CDN. If jsdelivr is blocked, slow, or unreachable — an ad
+    blocker, a corporate proxy, the Great Firewall — the button is dead and the
+    page says nothing about it.
+
+    NOTE: this is the one fixture that is NOT hermetic. Its baseline needs the
+    public internet, because block-third-party matches real CDN hostnames and a
+    localhost stand-in would not exercise the scenario honestly.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <p>Celebrate responsibly.</p>
+  <button id="celebrate" type="button">Celebrate</button>
+  <p id="status" role="status">Ready.</p>
+
+  <script src="/third-party/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "fixture": "csp-report-only",
+  "version": 1,
+  "expectedFindings": [
+    {
+      "id": "csp-inline-script-violation",
+      "scenario": "baseline",
+      "class": "csp-policy",
+      "severity": "major",
+      "signal": "executing inline script violates",
+      "expected": true
+    },
+    {
+      "id": "csp-inline-style-violation",
+      "scenario": "baseline",
+      "class": "csp-style",
+      "severity": "minor",
+      "signal": "applying inline style violates",
+      "expected": true
+    },
+    {
+      "id": "csp-compliant-script-runs",
+      "scenario": "baseline",
+      "class": "csp-external-script",
+      "severity": "info",
+      "signal": "external script ran",
+      "expected": true
+    },
+    {
+      "id": "csp-content-survives-no-js",
+      "scenario": "block-js",
+      "class": "progressive-enhancement",
+      "severity": "info",
+      "signal": "the gazette",
+      "expected": true
+    },
+    {
+      "id": "csp-no-offline-shell",
+      "scenario": "offline",
+      "class": "offline-fallback",
+      "severity": "critical",
+      "signal": "err_internet_disconnected",
+      "expected": true
+    }
+  ]
+}

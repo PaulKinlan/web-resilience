@@ -61,6 +61,11 @@ $WR scenarios
      `resourceType` resolved from the matching request, plus `errorText`,
      `canceled`, `blockedReason`. Name the specific asset in your finding.
    - `consoleErrors` / `uncaughtExceptions` — JS failures under the injected condition
+   - `browserLogs` — diagnostics the BROWSER emits, not the page. CSP
+     violations, CORS rejections, mixed content, deprecations and
+     interventions appear **only** here. A report-only CSP that would break the
+     page once enforced is invisible everywhere else, so check this even when
+     `consoleErrors` is empty.
    - `perf` — `metrics` (full Performance.getMetrics set) + `nav` (fcp/dcl/load)
    - `fonts` — font faces + their status (loaded/error/unloaded)
    - `pageTextSample` — body text (lets text-only models analyze without vision)

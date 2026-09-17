@@ -103,18 +103,30 @@ export async function main() {
   const workDir = option("work-dir") ?? "/tmp/wr-autoresearch";
   const keepWorktrees = Deno.args.includes("--keep-worktrees");
 
+  // All hermetic fixtures. A wider set is the main defence against a mutation
+  // that raises the score by special-casing one page: with two fixtures the
+  // ceiling was 10, which is not much to optimise into.
   const fixtures: Fixture[] = [
-    {
-      name: "resilient-club",
-      url: `http://127.0.0.1:${port}/resilient-club/`,
-      rubric: "eval/rubrics/resilient-club.json",
-    },
-    {
-      name: "reference",
-      url: `http://127.0.0.1:${port}/reference/`,
-      rubric: "eval/rubrics/reference.json",
-    },
-  ];
+    "resilient-club",
+    "reference",
+    "spa-hydration",
+    "sw-dependency",
+    "csp-report-only",
+  ].map((name) => ({
+    name,
+    url: `http://127.0.0.1:${port}/${name}/`,
+    rubric: `eval/rubrics/${name}.json`,
+  }));
+
+  // third-party needs the public internet (block-third-party matches real CDN
+  // hostnames). Opt-in, so a flaky network cannot look like a regression.
+  if (Deno.args.includes("--include-network-fixtures")) {
+    fixtures.push({
+      name: "third-party",
+      url: `http://127.0.0.1:${port}/third-party/`,
+      rubric: "eval/rubrics/third-party.json",
+    });
+  }
 
   const repoRoot = await gitOrThrow(["rev-parse", "--show-toplevel"]);
   await Deno.mkdir(workDir, { recursive: true });
