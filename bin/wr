@@ -80,6 +80,7 @@ wr — web resilience harness
   wr vision <audit-dir>           analyse the screenshots with Gemini
   wr scenarios                    list the scenario matrix
   wr eval <url> <rubric.json>     score a fixture against a rubric
+  wr inert <audit-dir>...         find scenarios indistinguishable from baseline
   wr autoresearch [--rounds N]    run the measurement loop
   wr leak <url> [--loops N]       heap/DOM growth probe
   wr serve [port]                 serve the local fixtures (default 8080)
@@ -107,6 +108,7 @@ case $command in
   vision) run harness/vision.ts "$@" ;;
   scenarios) run harness/run-scenario.ts --list ;;
   eval) run eval/run-eval.ts "$@" ;;
+  inert) run eval/inertness.ts "$@" ;;
   autoresearch) run eval/autoresearch.ts "$@" ;;
   leak) run harness/leak-probe.ts "$@" ;;
   serve) run fixtures/serve.ts "$@" ;;

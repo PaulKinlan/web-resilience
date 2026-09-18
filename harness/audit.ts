@@ -134,12 +134,17 @@ export async function runAudit(options: AuditOptions): Promise<AuditReport> {
           break;
         } catch (error) {
           console.error(`[${spec.id}] harness error: ${error}`);
-          const canRetry = attempt === 1 && cdp.closed;
           // Relaunch on any transport death, whether or not we intend to
           // retry — the next scenario needs a browser either way.
-          const revived = cdp.closed ? await relaunch() : false;
-          if (canRetry && revived) {
-            console.error(`[${spec.id}] retrying on the relaunched browser`);
+          const revived = cdp.closed ? await relaunch() : true;
+          // Retry on ANY first-attempt failure, not just a dead socket. The
+          // narrower condition looked prudent and was not: an `after-load`
+          // scenario whose setup navigation was merely slow throws with the
+          // socket perfectly healthy, so the retry never fired and the
+          // scenario was written off as unrun. A flaky load should cost a few
+          // seconds, not a hole in the matrix.
+          if (attempt === 1 && revived) {
+            console.error(`[${spec.id}] retrying`);
             continue;
           }
           report = unrunScenario(spec, url, String(error));
@@ -350,6 +355,7 @@ export async function runScenario(
   const shapesNetwork = (method: string) => method.startsWith("Network.");
 
   const applyToWorker = async (wsid: string) => {
+    if (workerSessions.has(wsid)) return; // auto-attach and enumeration overlap
     workerSessions.add(wsid);
     try {
       await cdp.send("Network.enable", {}, wsid);
@@ -358,12 +364,74 @@ export async function runScenario(
         await cdp.send(command.method, command.params, wsid).catch(() => {});
       }
       if (spec.failAllWith) {
-        await cdp.send("Fetch.enable", {
-          patterns: [{ urlPattern: "*", requestStage: "Request" }],
-        }, wsid);
+        // Deliberately NOT Fetch interception. Enabling Fetch on a service
+        // worker session wedges the worker for the remainder of the browser's
+        // life: `dns-fail` poisoned every single scenario that followed it,
+        // and because the cached shell still rendered, the damage showed up
+        // as `navSucceeded: false` with plausible-looking page text — a
+        // harness fault wearing the costume of a finding.
+        //
+        // Offline emulation gets us what the scenario actually needs: the
+        // worker's own `fetch()` rejects, so cache fallbacks are exercised.
+        // The cost is honest and small — the worker sees a generic transport
+        // failure instead of the specific `errorReason`. Nothing in the
+        // matrix distinguishes worker-side error codes, and a slightly
+        // coarser failure beats a scenario that lies.
+        await cdp.send("Network.emulateNetworkConditions", {
+          offline: true,
+          latency: 0,
+          downloadThroughput: 0,
+          uploadThroughput: 0,
+          connectionType: "none",
+        }, wsid).catch(() => {});
+      }
+      if (Deno.env.get("WR_DEBUG_WORKERS")) {
+        console.error(`[${spec.id}] shaped worker session ${wsid}`);
       }
     } catch {
       // The worker can die or never start; that is not a scenario failure.
+    }
+  };
+
+  // Attaching per scenario is only safe if we also DETACH per scenario. The
+  // page target is thrown away at the end of each scenario, which is what
+  // makes page-level overrides self-cleaning — but the service worker
+  // outlives every scenario in the matrix. An override left on it (offline,
+  // blocked URLs, throttling) would silently apply to all 45 runs that
+  // follow, and the fixture would look progressively more broken the further
+  // down the matrix you read.
+  const releaseWorkers = async () => {
+    for (const wsid of workerSessions) {
+      await cdp.send("Network.emulateNetworkConditions", {
+        offline: false,
+        latency: 0,
+        downloadThroughput: 0,
+        uploadThroughput: 0,
+        connectionType: "none",
+      }, wsid).catch(() => {});
+      await cdp.send("Network.setBlockedURLs", { urls: [] }, wsid).catch(
+        () => {},
+      );
+      await cdp.send("Network.disable", {}, wsid).catch(() => {});
+      await cdp.send("Target.detachFromTarget", { sessionId: wsid }).catch(
+        () => {},
+      );
+    }
+    workerSessions.clear();
+  };
+
+  let cleanedUp = false;
+  const cleanup = async () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    for (const unsubscribe of unsubscribers) unsubscribe();
+    await releaseWorkers();
+    await cdp.send("Target.closeTarget", { targetId: page.targetId }).catch(
+      () => {},
+    );
+    if (browserContextId) {
+      await cdp.send("Target.disposeBrowserContext", { browserContextId })
+        .catch(() => {});
     }
   };
 
@@ -407,8 +475,10 @@ export async function runScenario(
       patterns: [{ urlPattern: "*", requestStage: "Request" }],
     });
     unsubscribers.push(cdp.on("Fetch.requestPaused", async (p, sid) => {
-      // Fail requests from the page AND from any worker acting on its behalf.
-      if (sid !== sessionId && !workerSessions.has(sid ?? "")) return;
+      // Page session only. Workers are shaped with offline emulation instead
+      // (see applyToWorker) because Fetch interception is not survivable on a
+      // target that outlives the scenario.
+      if (sid !== sessionId) return;
       try {
         await cdp.send("Fetch.failRequest", {
           requestId: p.requestId,
@@ -522,6 +592,10 @@ export async function runScenario(
     // would read as a genuine finding ("the app failed to load") when it is
     // really just harness damage.
     if (!navSucceeded) {
+      // Release this scenario's CDP state first. Throwing past the teardown
+      // would leave worker sessions attached, and a leaked worker session is
+      // not inert — see the cleanup comment below.
+      await cleanup();
       throw new Error(
         `${spec.id}: setup load failed, so the failure was never injected ` +
           `(refusing to crash about:blank — it would take the browser with it)`,
@@ -571,13 +645,7 @@ export async function runScenario(
     ? await captureScreenshot(sess, `${options.outDir}/${spec.id}.png`)
     : null;
 
-  for (const unsubscribe of unsubscribers) unsubscribe();
-  await cdp.send("Target.closeTarget", { targetId: page.targetId }).catch(() => {});
-  if (browserContextId) {
-    await cdp.send("Target.disposeBrowserContext", { browserContextId }).catch(
-      () => {},
-    );
-  }
+  await cleanup();
 
   return {
     scenario: spec.id,
