@@ -52,15 +52,26 @@ export interface BrowserLogEntry {
   [key: string]: unknown;
 }
 
+export interface NavigationPerfMetrics {
+  fcp: number | null;
+  lcp: number | null;
+  /** Accumulated shifts without recent input during the probe, not session-window CLS. */
+  cls: number | null;
+  dcl: number | null;
+  load: number | null;
+}
+
 export interface PerfMetrics {
-  /** Performance.getMetrics, keyed by metric name. */
-  metrics?: Record<string, number>;
-  /** PerformanceNavigationTiming highlights, in ms. */
-  nav?: {
-    fcp: number | null;
-    dcl: number | null;
-    load: number | null;
-  } | null;
+  /** Performance.getMetrics, keyed by metric name; empty when unavailable. */
+  metrics: Record<string, number>;
+  /** Paint/navigation timings in ms, plus the unitless layout shift score. */
+  nav: NavigationPerfMetrics;
+  /** Flat compatibility fields mirror nav, including null when unmeasured. */
+  fcpMs: number | null;
+  lcpMs: number | null;
+  cls: number | null;
+  domContentLoadedMs: number | null;
+  loadMs: number | null;
 }
 
 export interface FontProbe {

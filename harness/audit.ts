@@ -188,7 +188,7 @@ function unrunScenario(
     consoleErrors: [],
     uncaughtExceptions: [],
     browserLogs: [],
-    perf: {},
+    perf: emptyPerf(),
     fonts: [],
     pageTextSample: null,
     screenshotPath: null,
@@ -281,6 +281,29 @@ export async function runScenario(
   await sess("Runtime.enable");
   await sess("Network.enable");
   await sess("Log.enable");
+  await sess("Performance.enable");
+  // Register before navigation: paint/shift entries can precede our first poll.
+  await sess("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(() => {
+      const vitals = globalThis.__webResilienceVitals = { lcp: null, cls: null };
+      try {
+        new PerformanceObserver(list => {
+          const entries = list.getEntries();
+          if (entries.length) vitals.lcp = entries[entries.length - 1].startTime;
+        }).observe({ type: "largest-contentful-paint", buffered: true });
+      } catch { /* unsupported: keep null rather than invent a measurement */ }
+      try {
+        if (PerformanceObserver.supportedEntryTypes.includes("layout-shift")) {
+          new PerformanceObserver(list => {
+            for (const entry of list.getEntries()) {
+              if (!entry.hadRecentInput) vitals.cls += entry.value;
+            }
+          }).observe({ type: "layout-shift", buffered: true });
+          vitals.cls = 0;
+        }
+      } catch { /* unsupported: keep null, distinct from measured zero */ }
+    })()`,
+  });
 
   // Scenario injection. %ORIGIN% resolves to the TARGET's origin, not
   // about:blank's, so permission/quota overrides land on the site under test.
@@ -605,7 +628,19 @@ async function waitForLoad(
 }
 
 
-async function capturePerf(sess: Session): Promise<PerfMetrics> {
+function emptyPerf(): PerfMetrics {
+  return {
+    metrics: {},
+    nav: { fcp: null, lcp: null, cls: null, dcl: null, load: null },
+    fcpMs: null,
+    lcpMs: null,
+    cls: null,
+    domContentLoadedMs: null,
+    loadMs: null,
+  };
+}
+
+export async function capturePerf(sess: Session): Promise<PerfMetrics> {
   try {
     const pm = await sess("Performance.getMetrics");
     const metrics = Object.fromEntries(
@@ -613,17 +648,33 @@ async function capturePerf(sess: Session): Promise<PerfMetrics> {
         m,
       ) => [m.name, m.value]),
     );
-    const nav = await sess("Runtime.evaluate", {
-      expression:
-        `(() => { try { const n = performance.getEntriesByType("navigation")[0]; return n ? { fcp: n.responseStart, dcl: n.domContentLoadedEventEnd, load: n.loadEventEnd } : null; } catch { return null; } })()`,
+    const result = await sess("Runtime.evaluate", {
+      expression: `(() => {
+        const n = performance.getEntriesByType("navigation")[0];
+        const vitals = globalThis.__webResilienceVitals;
+        return {
+          fcp: performance.getEntriesByName("first-contentful-paint")[0]?.startTime ?? null,
+          lcp: vitals?.lcp ?? null,
+          cls: vitals?.cls ?? null,
+          dcl: n?.domContentLoadedEventEnd ?? null,
+          load: n?.loadEventEnd ?? null,
+        };
+      })()`,
       returnByValue: true,
     });
+    const nav = (result.result as { value?: PerfMetrics["nav"] })?.value;
+    if (!nav) return emptyPerf();
     return {
       metrics,
-      nav: ((nav.result as { value?: PerfMetrics["nav"] })?.value) ?? null,
+      nav,
+      fcpMs: nav.fcp,
+      lcpMs: nav.lcp,
+      cls: nav.cls,
+      domContentLoadedMs: nav.dcl,
+      loadMs: nav.load,
     };
   } catch {
-    return {};
+    return emptyPerf();
   }
 }
 
