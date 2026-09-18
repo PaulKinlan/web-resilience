@@ -123,6 +123,11 @@ export const harnessObjective: Objective = {
       }
       perFixture[fixture.name] = score;
       value += score.matched - score.falsePositives;
+      // An incomplete matrix is not a valid measurement. Without this a
+      // mutation that crashes Chrome two thirds of the way through could score
+      // as well as a working one, since the rubric's findings may all sit in
+      // the scenarios that ran before the crash.
+      value -= score.scenariosUnrun;
     }
     return { value, perFixture };
   },

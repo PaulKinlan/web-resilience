@@ -17,6 +17,14 @@ export interface RubricFinding {
 export interface Score {
   fixture: string;
   version: number;
+  /**
+   * Scenarios the harness could not complete. A score computed over a partial
+   * matrix is not comparable with one computed over a full matrix, and a
+   * rubric whose findings happen to sit in the scenarios that DID run will
+   * report a clean pass over a half-finished audit.
+   */
+  scenariosRun: number;
+  scenariosUnrun: number;
   totalFindings: number;
   matched: number;
   missed: number;
@@ -75,6 +83,8 @@ export function scoreAudit(report: AuditReport, rubric: Rubric): Score {
   return {
     fixture: rubric.fixture,
     version: rubric.version,
+    scenariosRun: report.scenarios.filter((s) => !s.harnessError).length,
+    scenariosUnrun: report.scenarios.filter((s) => s.harnessError).length,
     totalFindings: total,
     matched,
     missed: missed.length,

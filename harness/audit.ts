@@ -60,9 +60,34 @@ export async function runAudit(options: AuditOptions): Promise<AuditReport> {
   const ids = options.scenarios ?? SCENARIOS.map((s) => s.id);
   await Deno.mkdir(outDir, { recursive: true });
 
-  const { wsUrl, proc, binary } = await launchChrome(`${outDir}/.chrome`);
-  const cdp = new CdpClient(wsUrl);
+  // Chrome is mutable state here because it can die mid-matrix and we relaunch
+  // it. A crash 22 scenarios in used to silently cost the remaining 24 — and
+  // the eval still scored the run as a pass, because the rubric's findings all
+  // happened to live in the scenarios that did run.
+  let { wsUrl, proc, binary } = await launchChrome(`${outDir}/.chrome`);
+  let cdp = new CdpClient(wsUrl);
   await cdp.ready();
+  let relaunches = 0;
+  const MAX_RELAUNCHES = 3;
+
+  /** Replace a dead browser. Returns false once we stop trying. */
+  const relaunch = async (): Promise<boolean> => {
+    if (relaunches >= MAX_RELAUNCHES) return false;
+    relaunches++;
+    console.error(`chrome died; relaunching (${relaunches}/${MAX_RELAUNCHES})`);
+    try {
+      cdp.close();
+    } catch { /* already gone */ }
+    await closeChrome(proc);
+    // A fresh profile dir: the old one may be what killed it, and a reused
+    // dir would also resurrect any service worker the matrix just cleared.
+    const next = await launchChrome(`${outDir}/.chrome-${relaunches}`);
+    proc = next.proc;
+    binary = next.binary;
+    cdp = new CdpClient(next.wsUrl);
+    await cdp.ready();
+    return true;
+  };
 
   const scenarios: ScenarioReport[] = [];
   try {
@@ -88,21 +113,41 @@ export async function runAudit(options: AuditOptions): Promise<AuditReport> {
       const spec = SCENARIOS.find((s) => s.id === id);
       if (!spec) throw new Error(`unknown scenario: ${id}`);
 
+      if (cdp.closed && !await relaunch()) {
+        scenarios.push(unrunScenario(spec, url, "browser gone and relaunch limit reached"));
+        options.onProgress?.(scenarios[scenarios.length - 1]);
+        continue;
+      }
+
       // One bad scenario must not cost the other 45. Losing a whole audit to a
       // stray CDP error would be a resilience bug in the resilience tool.
-      let report: ScenarioReport;
-      if (cdp.closed) {
-        report = unrunScenario(spec, url, "browser gone before this scenario ran");
-      } else {
+      //
+      // Two attempts, and only two: the scenario that kills the browser is
+      // usually the one worth having (tab-crash takes the browser-level socket
+      // down with it), so retry it once on the fresh browser. If it dies again
+      // it is genuinely unrunnable here and we record the gap rather than
+      // looping on it.
+      let report: ScenarioReport | null = null;
+      for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           report = await runScenario(cdp, spec, effective);
+          break;
         } catch (error) {
-          report = unrunScenario(spec, url, String(error));
           console.error(`[${spec.id}] harness error: ${error}`);
+          const canRetry = attempt === 1 && cdp.closed;
+          // Relaunch on any transport death, whether or not we intend to
+          // retry — the next scenario needs a browser either way.
+          const revived = cdp.closed ? await relaunch() : false;
+          if (canRetry && revived) {
+            console.error(`[${spec.id}] retrying on the relaunched browser`);
+            continue;
+          }
+          report = unrunScenario(spec, url, String(error));
+          break;
         }
       }
-      scenarios.push(report);
-      options.onProgress?.(report);
+      scenarios.push(report!);
+      options.onProgress?.(report!);
     }
   } finally {
     cdp.close();
@@ -239,22 +284,29 @@ export async function runScenario(
 
   // Scenario injection. %ORIGIN% resolves to the TARGET's origin, not
   // about:blank's, so permission/quota overrides land on the site under test.
+  //
+  // Deliberately a function, not a loop run here: the listeners below must be
+  // attached FIRST. They used to be wired up after injection, so any event the
+  // injection itself provoked — the renderer crash, most obviously — landed
+  // before anything was listening and was lost.
   const origin = new URL(url).origin;
   const injectionErrors: string[] = [];
-  for (const command of spec.commands) {
-    const params = Object.fromEntries(
-      Object.entries(command.params).map((
-        [k, v],
-      ) => [k, v === "%ORIGIN%" ? origin : v]),
-    );
-    try {
-      await sess(command.method, params);
-    } catch (error) {
-      // A failed injection invalidates the scenario — record it rather than
-      // reporting a clean run that never happened.
-      injectionErrors.push(`${command.method}: ${String(error)}`);
+  const inject = async () => {
+    for (const command of spec.commands) {
+      const params = Object.fromEntries(
+        Object.entries(command.params).map((
+          [k, v],
+        ) => [k, v === "%ORIGIN%" ? origin : v]),
+      );
+      try {
+        await sess(command.method, params);
+      } catch (error) {
+        // A failed injection invalidates the scenario — record it rather than
+        // reporting a clean run that never happened.
+        injectionErrors.push(`${command.method}: ${String(error)}`);
+      }
     }
-  }
+  };
 
   const unsubscribers: Array<() => void> = [];
   if (spec.failAllWith) {
@@ -313,8 +365,19 @@ export async function runScenario(
     cdp.on("Log.entryAdded", (p, sid) => {
       if (mine(sid) && p.entry) browserLogs.push(p.entry as BrowserLogEntry);
     }),
-    cdp.on("Target.targetCrashed", (_p, sid) => {
+    // Crash detection listens on BOTH events, because they are scoped
+    // differently and neither alone is sufficient:
+    //   Inspector.targetCrashed — session-scoped, arrives with our sessionId.
+    //   Target.targetCrashed    — browser-scoped, arrives with NO sessionId
+    //                             and must be matched on targetId instead.
+    // This used to be a lone `Target.targetCrashed` behind a `mine(sid)`
+    // guard, which is unsatisfiable: a browser-scoped event has no session,
+    // so crashDetected was false on every run of every scenario.
+    cdp.on("Inspector.targetCrashed", (_p, sid) => {
       if (mine(sid)) crashDetected = true;
+    }),
+    cdp.on("Target.targetCrashed", (p, _sid) => {
+      if (p.targetId === page.targetId) crashDetected = true;
     }),
   );
 
@@ -324,18 +387,62 @@ export async function runScenario(
     }));
   }
 
+  const phase = spec.phase ?? "before-load";
+
+  // before-load is the common case: the failure has to be in force while the
+  // page loads, or it is not the failure we meant to test.
+  if (phase === "before-load") await inject();
+
   let navSucceeded = false;
   let finalUrl: string | null = null;
-  try {
-    await sess("Page.navigate", { url });
-    const loaded = await waitForLoad(sess, spec.id === "offline");
-    navSucceeded = loaded.complete;
-    finalUrl = loaded.url;
-  } catch {
-    // Navigation failure IS the finding for several scenarios.
-  }
+  const navigate = async (tolerateFailure: boolean) => {
+    try {
+      await sess("Page.navigate", { url });
+      const loaded = await waitForLoad(sess, tolerateFailure);
+      navSucceeded = loaded.complete;
+      finalUrl = loaded.url;
+    } catch {
+      // Navigation failure IS the finding for several scenarios.
+      navSucceeded = false;
+    }
+  };
 
+  await navigate(spec.id === "offline");
   await sleep(SETTLE_MS);
+
+  if (phase === "after-load") {
+    // The setup load is a PRECONDITION, not a measurement. If it failed we are
+    // still sitting on about:blank, and injecting here would be actively
+    // harmful on two counts:
+    //
+    //  1. It tests nothing — crashing a blank page then loading the site
+    //     cleanly is the exact bug this phase split exists to fix.
+    //  2. It kills the browser. about:blank shares a renderer process with
+    //     Chrome's own startup tab, so Page.crash against it takes down the
+    //     last renderer and the browser exits. This is the "chrome died"
+    //     that has been eating scenarios all along: a slow first navigation
+    //     times out, the crash lands on about:blank, and the process dies.
+    //
+    // Throwing hands this to the retry path, which relaunches and tries once
+    // more on a clean browser — far better than recording nav=false, which
+    // would read as a genuine finding ("the app failed to load") when it is
+    // really just harness damage.
+    if (!navSucceeded) {
+      throw new Error(
+        `${spec.id}: setup load failed, so the failure was never injected ` +
+          `(refusing to crash about:blank — it would take the browser with it)`,
+      );
+    }
+
+    // The app is up. NOW break it, and re-navigate to find out whether it can
+    // come back. navSucceeded/finalUrl are deliberately overwritten by this
+    // second navigation: for a recovery scenario, recovery is the result that
+    // matters, not the clean load that set it up.
+    await inject();
+    await sleep(500);
+    await navigate(false);
+    await sleep(SETTLE_MS);
+  }
 
   // Run the flow with damage attribution: snapshot the failure counters after
   // each step so "clicking Checkout killed 3 requests" is recoverable from the

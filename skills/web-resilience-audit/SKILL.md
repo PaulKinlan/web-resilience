@@ -89,7 +89,13 @@ $WR scenarios
      status shows `error`; compare the screenshot)
    - **throttled-***: Which assets starve? Font swap behavior? LCP affected?
    - **cpu-***: Long tasks / INP risk (from perf metrics + the report).
-   - **memory-critical / tab-crash**: State preserved on reload? Crash recovery?
+   - **memory-critical**: State preserved on reload? Crash recovery?
+   - **tab-crash**: An `after-load` scenario — the app is loaded, the renderer
+     is then crashed under it, and the page re-navigated. So `navSucceeded`
+     and `pageTextSample` describe the site AFTER recovery, not the initial
+     load; `crashDetected: true` confirms the crash really happened. A row
+     with `crashDetected: false` means the injection never landed, so treat
+     the scenario as inconclusive rather than as a pass.
    - **backgrounded**: Timers/persistence survive freeze/resume?
    - **no-cache**: True first-load cost; is caching configured?
    - **storage-quota**: Persistence writes fail gracefully or throw?

@@ -154,5 +154,9 @@ the non-interactive `PATH`, symlink restrictions): docs/INSTALL.md.
 - [x] Harness fault tolerance: a dead CDP socket self-diagnoses, a failed scenario is reported as `harnessError` instead of aborting the matrix
 - [x] Autoresearch mutation loop: worktree isolation, pluggable objective (`harness` scores audit.json, `skill` scores an agent's findings report), enforced frozen ground truth, keep-the-winner on a git ref (eval/mutators/README.md)
 - [x] First unit tests (21) — isolation guard + findings scorer, gated in CI
-- [ ] More fixtures + rubrics (stale-SW, CSP report-only, SPA hydration, third-party dependency)
+- [x] Six fixtures + rubrics — resilient-club, reference, spa-hydration, sw-dependency, csp-report-only, third-party (fixtures/README.md); five gated in CI
+- [x] Browser diagnostics captured (`browserLogs`) — CSP/CORS/mixed-content/deprecations were enabled but never subscribed, so they reached no report
+- [x] Matrix-completeness gate — a run that scored 5/5 with 24 of 46 scenarios missing is now a hard failure (`--max-unrun`, default 0); a crashed browser is relaunched and the lost scenario retried once
+- [x] Scenario load phases (`before-load` / `after-load`) — `tab-crash` was crashing `about:blank` and then loading the site cleanly, so it tested nothing; it now crashes the running app and measures recovery
+- [x] Crash detection fixed — the harness watched browser-scoped `Target.targetCrashed` behind a session filter that could never match, so `crashDetected` was false on every run ever recorded
 

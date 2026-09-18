@@ -1,8 +1,24 @@
 // scenarios.ts — the failure-injection matrix as harness-side CDP commands.
-// Each scenario is a list of {method, params} applied to the page session
-// BEFORE navigation, plus an optional request-pause policy (dns-fail).
+// Each scenario is a list of {method, params} applied to the page session,
+// plus an optional request-pause policy (dns-fail).
+//
+// Injection happens BEFORE navigation by default, because most failures only
+// mean something if they are in force while the page loads. A few scenarios
+// are the opposite: see `phase`.
 
 export type CdpCommand = { method: string; params: Record<string, unknown> };
+
+/**
+ * When to apply a scenario's commands.
+ *
+ * - `before-load` (default): inject, then navigate. Correct for anything that
+ *   shapes the load itself — offline, blocked resources, throttling.
+ * - `after-load`: navigate, let the app settle, THEN inject and re-navigate.
+ *   Correct for recovery tests, where the whole question is what happens to a
+ *   running app. Crashing about:blank and then loading the site cleanly, which
+ *   is what `before-load` would do, tests nothing at all.
+ */
+export type ScenarioPhase = "before-load" | "after-load";
 
 export interface ScenarioSpec {
   id: string;
@@ -13,6 +29,8 @@ export interface ScenarioSpec {
   failAllWith?: "NameNotResolved" | "InternetDisconnected" | "TimedOut" | "ConnectionRefused" | "BlockedByClient";
   /** Run the target in an incognito browser context (partitioned storage). */
   incognito?: boolean;
+  /** Defaults to `before-load`. */
+  phase?: ScenarioPhase;
 }
 
 // The generic <Id> keeps each scenario's id as a literal type, which is what
@@ -25,7 +43,8 @@ const S = <const Id extends string>(
   commands: CdpCommand[],
   failAllWith?: ScenarioSpec["failAllWith"],
   incognito?: boolean,
-) => ({ id, label, description, commands, failAllWith, incognito });
+  phase?: ScenarioPhase,
+) => ({ id, label, description, commands, failAllWith, incognito, phase });
 
 export const SCENARIOS = [
 
@@ -61,9 +80,11 @@ export const SCENARIOS = [
     { method: "Memory.setPressureNotificationsSuppressed", params: { suppressed: true } },
     { method: "Memory.simulatePressureNotification", params: { level: "critical" } },
   ]),
+  // after-load: crashing about:blank and then loading the site cleanly would
+  // exercise nothing. The renderer has to die with the app running in it.
   S("tab-crash", "Renderer crash + reload", "Page.crash then reload — tests crash recovery, state preservation.", [
     { method: "Page.crash", params: {} },
-  ]),
+  ], undefined, undefined, "after-load"),
   S("backgrounded", "Frozen/backgrounded", "Freeze then resume — timers, persistence, visibility handling.", [
     { method: "Page.setWebLifecycleState", params: { state: "frozen" } },
   ]),

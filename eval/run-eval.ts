@@ -70,6 +70,20 @@ if (import.meta.main) {
   // Regression gate. Without this the eval is decorative in CI: it would
   // report a collapsed score and still exit 0.
   const failures: string[] = [];
+
+  // An incomplete matrix invalidates the whole measurement, and it does NOT
+  // show up in `matched`: a rubric whose findings all sit in the scenarios
+  // that happened to run will report a clean pass over a half-finished audit.
+  // Observed for real — 24 of 46 scenarios missing, still 5/5.
+  // Strict by default; opt out deliberately when auditing a flaky target.
+  const maxUnrun = Number(optionValue("max-unrun") ?? 0);
+  if (score.scenariosUnrun > maxUnrun) {
+    failures.push(
+      `${score.scenariosUnrun} scenario(s) did not run (allowed ${maxUnrun}) — ` +
+        `the matrix is incomplete, so this score is not meaningful`,
+    );
+  }
+
   const expect = optionValue("expect");
   if (expect !== undefined && score.matched < Number(expect)) {
     failures.push(`matched ${score.matched} < expected ${expect}`);
