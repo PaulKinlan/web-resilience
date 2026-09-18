@@ -309,17 +309,88 @@ export async function runScenario(
   };
 
   const unsubscribers: Array<() => void> = [];
+
+  // A service worker is a SEPARATE CDP target with its own network stack.
+  // Network.emulateNetworkConditions and Fetch interception applied to the
+  // page session do not touch it. The consequence was severe and completely
+  // silent: on any service-worker-backed site the `offline` scenario was not
+  // offline at all. The worker intercepted each fetch, went to the real
+  // network, and served a live response — so the audit reported a site
+  // "surviving offline" that had never been taken offline. `offline` and
+  // `dns-fail` were inert on exactly the class of site people build service
+  // workers FOR.
+  //
+  // Auto-attach picks the worker up whenever it spins up (it starts lazily,
+  // so attaching once up front is not enough) and we replay the scenario's
+  // network commands into it.
+  const workerSessions = new Set<string>();
+  const shapesNetwork = (method: string) => method.startsWith("Network.");
+
+  const applyToWorker = async (wsid: string) => {
+    workerSessions.add(wsid);
+    try {
+      await cdp.send("Network.enable", {}, wsid);
+      for (const command of spec.commands) {
+        if (!shapesNetwork(command.method)) continue; // Emulation.* is page-only
+        await cdp.send(command.method, command.params, wsid).catch(() => {});
+      }
+      if (spec.failAllWith) {
+        await cdp.send("Fetch.enable", {
+          patterns: [{ urlPattern: "*", requestStage: "Request" }],
+        }, wsid);
+      }
+    } catch {
+      // The worker can die or never start; that is not a scenario failure.
+    }
+  };
+
+  unsubscribers.push(cdp.on("Target.attachedToTarget", (p) => {
+    const info = p.targetInfo as { type?: string } | undefined;
+    if (info?.type !== "service_worker" && info?.type !== "worker") return;
+    void applyToWorker(p.sessionId as string);
+  }));
+  // Browser-level: service workers are not children of the page target, so a
+  // page-scoped auto-attach never sees them.
+  await cdp.send("Target.setAutoAttach", {
+    autoAttach: true,
+    waitForDebuggerOnStart: false,
+    flatten: true,
+  }).catch(() => {});
+
+  // Auto-attach only fires for targets created AFTER it is set. The service
+  // worker is registered during priming and then outlives every scenario in
+  // the matrix, so it already exists here and no event ever arrives for it.
+  // That is exactly the worker we need to shape, so enumerate and attach.
+  try {
+    const { targetInfos } = await cdp.send("Target.getTargets") as {
+      targetInfos: Array<{ targetId: string; type: string; url: string }>;
+    };
+    for (const info of targetInfos ?? []) {
+      if (info.type !== "service_worker" && info.type !== "worker") continue;
+      // Only workers belonging to the site under test.
+      if (info.url && !info.url.startsWith(origin)) continue;
+      const attached = await cdp.send("Target.attachToTarget", {
+        targetId: info.targetId,
+        flatten: true,
+      }).catch(() => null);
+      if (attached?.sessionId) await applyToWorker(attached.sessionId as string);
+    }
+  } catch {
+    // Target enumeration is best-effort; a site with no worker is the norm.
+  }
+
   if (spec.failAllWith) {
     await sess("Fetch.enable", {
       patterns: [{ urlPattern: "*", requestStage: "Request" }],
     });
     unsubscribers.push(cdp.on("Fetch.requestPaused", async (p, sid) => {
-      if (sid !== sessionId) return;
+      // Fail requests from the page AND from any worker acting on its behalf.
+      if (sid !== sessionId && !workerSessions.has(sid ?? "")) return;
       try {
         await cdp.send("Fetch.failRequest", {
           requestId: p.requestId,
           errorReason: spec.failAllWith,
-        }, sessionId as string);
+        }, sid as string);
       } catch {
         // request already gone
       }

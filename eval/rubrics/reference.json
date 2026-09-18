@@ -1,21 +1,21 @@
 {
   "fixture": "reference",
-  "version": 5,
+  "version": 6,
   "expectedFindings": [
     {
       "id": "ref-offline-shell",
       "scenario": "offline",
       "class": "offline-fallback",
       "severity": "critical",
-      "signal": "resilient club",
+      "signal": "showing cached data",
       "expected": true
     },
     {
-      "id": "ref-offline-ui",
+      "id": "ref-offline-not-live",
       "scenario": "offline",
       "class": "offline-fallback",
       "severity": "major",
-      "signal": "ready.",
+      "signal": "live data.",
       "expected": true,
       "notPresent": true
     },
@@ -24,15 +24,7 @@
       "scenario": "dns-fail",
       "class": "dns-fallback",
       "severity": "critical",
-      "signal": "resilient club",
-      "expected": true
-    },
-    {
-      "id": "ref-font-fallback",
-      "scenario": "block-fonts",
-      "class": "font-display",
-      "severity": "major",
-      "signal": "resilient club",
+      "signal": "showing cached data",
       "expected": true
     },
     {
@@ -41,6 +33,14 @@
       "class": "permissions",
       "severity": "major",
       "signal": "camera unavailable",
+      "expected": true
+    },
+    {
+      "id": "ref-js-blocked-keeps-content",
+      "scenario": "block-js",
+      "class": "progressive-enhancement",
+      "severity": "major",
+      "signal": "we test how websites survive",
       "expected": true
     }
   ]

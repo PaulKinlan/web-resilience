@@ -1,6 +1,6 @@
 {
   "fixture": "resilient-club",
-  "version": 1,
+  "version": 2,
   "expectedFindings": [
     {
       "id": "rc-offline-no-sw",
@@ -19,11 +19,11 @@
       "expected": true
     },
     {
-      "id": "rc-font-error",
-      "scenario": "block-fonts",
-      "class": "font-display",
+      "id": "rc-js-stuck-placeholder",
+      "scenario": "block-js",
+      "class": "ux-feedback",
       "severity": "major",
-      "signal": "error",
+      "signal": "ready.",
       "expected": true
     },
     {
@@ -40,7 +40,7 @@
       "scenario": "block-js",
       "class": "js-failure",
       "severity": "major",
-      "signal": "you’re offline",
+      "signal": "you\u2019re offline",
       "expected": true,
       "notPresent": true
     }

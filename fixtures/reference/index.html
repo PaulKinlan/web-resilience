@@ -17,6 +17,11 @@
     <button id="join" type="button">Join the club</button>
     <button id="camera" type="button">Use camera</button>
     <p id="status" role="status">Ready.</p>
+    <!-- FIXED 4: an honest connectivity indicator. The app-shell pattern means
+         a cached page looks identical to a live one, which is good for users
+         and terrible for anyone trying to verify the offline path actually
+         works. This states which one you are looking at. -->
+    <p id="connectivity">Checking connection…</p>
   </main>
   <!-- FIXED 3: resilient init — the button works without JS; JS only enhances -->
   <noscript><style>#join{display:none}</style></noscript>

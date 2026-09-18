@@ -1,6 +1,6 @@
 {
   "fixture": "sw-dependency",
-  "version": 1,
+  "version": 2,
   "expectedFindings": [
     {
       "id": "swdep-bypass-api-404",
@@ -27,11 +27,11 @@
       "expected": true
     },
     {
-      "id": "swdep-offline-shell-works",
-      "scenario": "offline",
-      "class": "offline-fallback",
-      "severity": "info",
-      "signal": "blue widget",
+      "id": "swdep-nojs-stuck-placeholder",
+      "scenario": "block-js",
+      "class": "progressive-enhancement",
+      "severity": "major",
+      "signal": "checking stock",
       "expected": true
     },
     {

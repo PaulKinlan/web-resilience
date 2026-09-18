@@ -10,6 +10,19 @@ self.addEventListener("activate", (event) => {
 });
 self.addEventListener("fetch", (event) => {
   const req = event.request;
+  // Network-first, with an honest marker on failure. The generic handler below
+  // would fall back to index.html for this, which the page would try to parse
+  // as JSON — a cached response disguised as a live one. Say which it is.
+  if (new URL(req.url).pathname.endsWith("/api/live.json")) {
+    event.respondWith(
+      fetch(req).catch(() =>
+        new Response(JSON.stringify({ mode: "cached" }), {
+          headers: { "content-type": "application/json" },
+        })
+      ),
+    );
+    return;
+  }
   if (req.mode === "navigate") {
     event.respondWith(
       fetch(req).catch(() => caches.match(scope + "index.html").then((r) => r || caches.match(scope))),
