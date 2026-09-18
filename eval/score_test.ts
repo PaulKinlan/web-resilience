@@ -184,3 +184,64 @@ Deno.test("a signal absent at baseline and present under failure is strong", () 
   assertEquals(score.strength.hollow, 0);
 });
 
+// The harness must not be able to vouch for the site.
+//
+// `extra.injectionErrors` is the harness reporting its own CDP failures. It
+// used to be folded into the baseline comparison, so a scenario whose command
+// errored differed from baseline *because* it had errored, and the finding
+// resting on it was promoted from hollow to survives. That is backwards: the
+// worse the harness performs, the stronger the evidence looked.
+//
+// Found for real. `sw-stop` had been failing with "ServiceWorker domain not
+// enabled" since it was written, and that error string was the only thing
+// separating it from baseline on the sw-dependency fixture.
+const sameTextRubric: Rubric = {
+  fixture: "test",
+  version: 1,
+  expectedFindings: [{
+    id: "shell-renders",
+    scenario: "offline",
+    class: "offline-fallback",
+    severity: "critical",
+    signal: "all good",
+    expected: true,
+  }],
+};
+
+Deno.test("a harness injection error is not evidence that the site did something", () => {
+  const score = scoreAudit(
+    report([
+      scenario({ scenario: "baseline", pageTextSample: "all good" }),
+      scenario({
+        scenario: "offline",
+        pageTextSample: "all good",
+        extra: { injectionErrors: ["Foo.bar: Error: domain not enabled"] },
+      }),
+    ]),
+    sameTextRubric,
+  );
+  assertEquals(score.strength.hollow, 1);
+  assertEquals(score.strength.survives, 0);
+});
+
+// The complement: everything in `extra` that is not harness bookkeeping still
+// counts. Permission state is something the browser told us about the page.
+Deno.test("non-diagnostic extra fields still distinguish a scenario from baseline", () => {
+  const score = scoreAudit(
+    report([
+      scenario({
+        scenario: "baseline",
+        pageTextSample: "all good",
+        extra: { permissions: { camera: "prompt" } },
+      }),
+      scenario({
+        scenario: "offline",
+        pageTextSample: "all good",
+        extra: { permissions: { camera: "denied" } },
+      }),
+    ]),
+    sameTextRubric,
+  );
+  assertEquals(score.strength.survives, 1);
+  assertEquals(score.strength.hollow, 0);
+});

@@ -96,9 +96,25 @@ export interface Rubric {
  * Everything observable about a scenario, minus timing. Perf and duration are
  * excluded deliberately: they differ on every run regardless of what was
  * injected, so including them would make every scenario look alive.
+ *
+ * Harness diagnostics are excluded for a sharper reason. `extra.injectionErrors`
+ * records CDP commands that failed, and it used to be folded in here — so a
+ * scenario whose injection was broken differed from baseline *because* it was
+ * broken, and any finding resting on it was promoted from `hollow` to
+ * `survives`. Harness failure was being counted as evidence of site behaviour.
+ *
+ * Caught when `sw-stop` was fixed: its command had been failing with
+ * "ServiceWorker domain not enabled" since it was written, and the error text
+ * was the only thing distinguishing that scenario from baseline. Repairing the
+ * scenario removed the difference and correctly exposed the finding as hollow.
+ *
+ * `injection` is excluded by the same logic, and by construction: this builds
+ * its object from a fixed list of keys rather than by copying the report.
  */
 function observable(sc: Record<string, unknown>): string {
   const arr = (k: string) => (sc[k] as Array<Record<string, unknown>>) ?? [];
+  const { injectionErrors: _injectionErrors, ...siteExtra } =
+    (sc.extra as Record<string, unknown>) ?? {};
   return JSON.stringify({
     nav: sc.navSucceeded,
     crash: sc.crashDetected,
@@ -111,7 +127,7 @@ function observable(sc: Record<string, unknown>): string {
       .map((l) => `${l.source}/${l.level}/${String(l.text ?? "").slice(0, 120)}`).sort(),
     fonts: sc.fonts,
     text: ((sc.pageTextSample as string) ?? "").trim(),
-    extra: sc.extra ?? null,
+    extra: siteExtra,
   });
 }
 

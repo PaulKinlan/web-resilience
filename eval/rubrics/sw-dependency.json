@@ -1,6 +1,6 @@
 {
   "fixture": "sw-dependency",
-  "version": 2,
+  "version": 3,
   "expectedFindings": [
     {
       "id": "swdep-bypass-api-404",
@@ -35,11 +35,11 @@
       "expected": true
     },
     {
-      "id": "swdep-sw-stop-recovers",
-      "scenario": "sw-stop",
-      "class": "sw-resilience",
-      "severity": "info",
-      "signal": "blue widget",
+      "id": "swdep-storage-cleared-breaks",
+      "scenario": "storage-cleared",
+      "class": "storage-resilience",
+      "severity": "critical",
+      "signal": "stock request failed: 404",
       "expected": true
     }
   ]

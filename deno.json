@@ -12,7 +12,7 @@
     "check": "deno check harness/*.ts harness/cdpc/*.ts eval/*.ts fixtures/serve.ts",
     "lint": "deno lint harness eval fixtures",
     "fmt": "deno fmt --check harness eval fixtures",
-    "test": "deno test -A eval/",
+    "test": "deno test -A eval/ harness/",
     "ci": "deno task check && deno task lint && deno task test"
   },
   "fmt": {

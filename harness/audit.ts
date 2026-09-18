@@ -22,6 +22,7 @@ import type {
   BrowserLogEntry,
   ConsoleEntry,
   FontProbe,
+  InjectionCheck,
   NetworkFailure,
   PerfMetrics,
   ScenarioReport,
@@ -197,6 +198,10 @@ function unrunScenario(
     fonts: [],
     pageTextSample: null,
     screenshotPath: null,
+    // The scenario never ran, so the failure was certainly not injected.
+    // Saying so explicitly keeps `refuted` meaning "we tried and it did not
+    // take", which is a different and much more interesting problem.
+    injection: { status: "refuted", detail: harnessError },
     harnessError,
     extra: {},
   };
@@ -645,6 +650,13 @@ export async function runScenario(
     ? await captureScreenshot(sess, `${options.outDir}/${spec.id}.png`)
     : null;
 
+  // Deliberately last. The probe is allowed to be expensive (the CPU ones burn
+  // millions of iterations) and mildly mutating (the cookie one writes a
+  // cookie), which is only safe once every measurement above is already
+  // banked. A verification step that perturbs the thing it is verifying is
+  // worse than no verification at all.
+  const injection = await verifyInjection(sess, spec);
+
   await cleanup();
 
   return {
@@ -663,9 +675,68 @@ export async function runScenario(
     fonts,
     pageTextSample,
     screenshotPath,
+    injection,
     extra: { permissions, chooserEvents, injectionErrors, interactions },
   };
 
+}
+
+
+/**
+ * Ask the page whether the scenario's failure was actually in force.
+ *
+ * The expression is wrapped in an async IIFE so probes can `await` (the
+ * storage ones need `navigator.storage.estimate()`), and evaluated with
+ * `returnByValue` so the verdict comes back as a plain boolean rather than a
+ * remote object handle.
+ *
+ * A probe that throws is reported as `error`, never as `refuted`. The
+ * distinction matters: `refuted` is an accusation against the harness and
+ * should be actionable, so it has to mean "the page told us the failure is not
+ * in force", not "we could not ask". A page that is offline, crashed, or has
+ * no JS execution context at all will fail every probe, and none of those are
+ * evidence that the injection missed.
+ */
+export async function verifyInjection(
+  sess: Session,
+  spec: Scenario,
+): Promise<InjectionCheck> {
+  if (spec.unsupported) {
+    return { status: "unsupported", detail: spec.unsupported, requires: spec.requires };
+  }
+  if (!spec.verify) {
+    return { status: "unverified", requires: spec.requires };
+  }
+  try {
+    const res = await sess("Runtime.evaluate", {
+      expression: `(async () => { return (${spec.verify}); })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const exception = (res as { exceptionDetails?: { text?: string } }).exceptionDetails;
+    if (exception) {
+      return {
+        status: "error",
+        expression: spec.verify,
+        detail: exception.text ?? "probe threw",
+        requires: spec.requires,
+      };
+    }
+    const value = (res.result as { value?: unknown })?.value;
+    return {
+      status: value === true ? "confirmed" : "refuted",
+      expression: spec.verify,
+      value,
+      requires: spec.requires,
+    };
+  } catch (err) {
+    return {
+      status: "error",
+      expression: spec.verify,
+      detail: err instanceof Error ? err.message : String(err),
+      requires: spec.requires,
+    };
+  }
 }
 
 

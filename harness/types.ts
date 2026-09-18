@@ -80,6 +80,42 @@ export interface FontProbe {
 }
 
 
+/**
+ * Whether the scenario's failure was demonstrably in force when the page was
+ * measured.
+ *
+ * Every other field in this report describes what the SITE did. This one
+ * describes what the HARNESS did, and it exists because the two were
+ * indistinguishable. A scenario that silently injects nothing produces a clean
+ * report, and a clean report is scored as the site coping — so a broken
+ * injection was being laundered into a passing grade.
+ *
+ *  - `confirmed`   — the probe ran and proved the failure was in force.
+ *  - `refuted`     — the probe ran and proved it was NOT. A harness bug.
+ *                    Nothing in this report is evidence about the site.
+ *  - `unverified`  — no probe is defined. The default, and not a complaint:
+ *                    most resource-blocking scenarios are self-evidencing via
+ *                    networkFailures.
+ *  - `unsupported` — the failure cannot be injected with CDP at all. Declared
+ *                    in the matrix, not discovered at runtime.
+ *  - `error`       — the probe itself threw. Says nothing either way.
+ */
+export interface InjectionCheck {
+  status: "confirmed" | "refuted" | "unverified" | "unsupported" | "error";
+  /** The probe expression, when there was one. */
+  expression?: string;
+  /** What the probe returned, for debugging a `refuted`. */
+  value?: unknown;
+  /** Why, for `unsupported` and `error`. */
+  detail?: string;
+  /**
+   * A page capability the scenario needs before it can show anything. Set
+   * from the matrix when declared; the reason a scenario can be both
+   * correctly injected and completely silent.
+   */
+  requires?: string;
+}
+
 export interface ScenarioReport {
   scenario: ScenarioId;
   url: string;
@@ -97,6 +133,8 @@ export interface ScenarioReport {
   fonts: FontProbe[];
   pageTextSample: string | null; // truncated body text — lets text models analyze
   screenshotPath: string | null;
+  /** Did the failure this scenario names actually happen? */
+  injection: InjectionCheck;
   /**
    * Set when the harness itself failed to complete this scenario (browser
    * died, CDP timed out). Distinct from a finding: an absent report must never
