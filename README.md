@@ -159,4 +159,6 @@ the non-interactive `PATH`, symlink restrictions): docs/INSTALL.md.
 - [x] Matrix-completeness gate — a run that scored 5/5 with 24 of 46 scenarios missing is now a hard failure (`--max-unrun`, default 0); a crashed browser is relaunched and the lost scenario retried once
 - [x] Scenario load phases (`before-load` / `after-load`) — `tab-crash` was crashing `about:blank` and then loading the site cleanly, so it tested nothing; it now crashes the running app and measures recovery
 - [x] Crash detection fixed — the harness watched browser-scoped `Target.targetCrashed` behind a session filter that could never match, so `crashDetected` was false on every run ever recorded
+- [x] Evidence strength per finding (`strong` / `survives` / `hollow`) — a rubric entry whose signal is already true at baseline, in a scenario whose report is identical to baseline, scores a point while proving nothing. **6 of 30 entries were in that state**, 4 of them in the reference fixture. Reported in `score.json`, gateable with `--max-hollow`
+- [ ] Rebuild the 6 hollow entries — `reference` offline/dns/fonts, `resilient-club` fonts, `sw-dependency` offline (needs fixtures that make the failure observable; the font fixtures point at `.invalid` hosts, so the font already fails at baseline and `block-fonts` cannot be distinguished)
 

@@ -97,6 +97,24 @@ if (import.meta.main) {
       `falsePositives ${score.falsePositives} > allowed ${maxFalsePositives}`,
     );
   }
+
+  // A hollow finding passes without the scenario being observed to do
+  // anything: the signal is already true at baseline AND the scenario's report
+  // is identical to baseline. It is free score that cannot regress, so it
+  // cannot detect the scenario it names breaking — which is the entire job.
+  //
+  // NOT strict by default, unlike --max-unrun. Six of the thirty entries in
+  // this repo are currently hollow; defaulting to 0 would fail every fixture
+  // until they are rebuilt, and a gate everyone has to pass a flag to silence
+  // teaches people to silence gates.
+  const maxHollow = optionValue("max-hollow");
+  if (maxHollow !== undefined && score.strength.hollow > Number(maxHollow)) {
+    failures.push(
+      `${score.strength.hollow} hollow finding(s) (allowed ${maxHollow}): ` +
+        `${score.hollowFindings.join(", ")} — these pass without the scenario ` +
+        `being observed to do anything`,
+    );
+  }
   if (failures.length) {
     console.error(`\nREGRESSION: ${failures.join("; ")}`);
     Deno.exit(1);

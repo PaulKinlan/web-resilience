@@ -31,6 +31,14 @@ export interface Score {
   falsePositives: number;
   precision: number;
   recall: number;
+  /**
+   * Evidence quality behind `matched`. A 5/5 made of hollow entries and a 5/5
+   * made of strong ones are the same number but not the same result, and
+   * before this there was no way to tell them apart.
+   */
+  strength: Record<FindingStrength, number>;
+  /** Ids of entries that pass without the scenario being observed to do anything. */
+  hollowFindings: string[];
   perClass: Record<string, { total: number; matched: number }>;
 }
 
@@ -53,10 +61,76 @@ function signalDetected(report: AuditReport, f: RubricFinding): boolean {
   return f.notPresent ? !present : present;
 }
 
+/**
+ * How much evidence a matched finding actually carries.
+ *
+ * A rubric entry names a scenario and a signal, but nothing has ever checked
+ * that the signal has anything to do with the scenario. If the signal is
+ * already satisfied in the BASELINE run — with no failure injected — the entry
+ * passes regardless of what the scenario does, or whether it does anything at
+ * all. Six of thirty entries were in exactly that state when this was added.
+ *
+ * - `strong`   — signal absent at baseline, present in the scenario. The entry
+ *                ties the finding to the injected failure. A real test.
+ * - `survives` — signal true in both, but the scenario produced some other
+ *                observable change. A legitimate resilience assertion ("the
+ *                shell still renders offline"); weaker, because it does not
+ *                identify what survived, but it is measuring a real event.
+ * - `hollow`   — signal true in both AND the scenario's report is identical to
+ *                baseline. Nothing was observed to happen. The entry is
+ *                re-measuring the baseline under another name: free points
+ *                that cannot regress and cannot detect the scenario breaking.
+ * - `baseline` — the entry asserts about the baseline scenario itself, so
+ *                there is nothing to compare it against. Not a defect.
+ * - `unmet`    — the assertion does not hold even in its own scenario.
+ */
+export type FindingStrength = "strong" | "survives" | "hollow" | "baseline" | "unmet";
+
 export interface Rubric {
   fixture: string;
   version: number;
   expectedFindings: RubricFinding[];
+}
+
+/**
+ * Everything observable about a scenario, minus timing. Perf and duration are
+ * excluded deliberately: they differ on every run regardless of what was
+ * injected, so including them would make every scenario look alive.
+ */
+function observable(sc: Record<string, unknown>): string {
+  const arr = (k: string) => (sc[k] as Array<Record<string, unknown>>) ?? [];
+  return JSON.stringify({
+    nav: sc.navSucceeded,
+    crash: sc.crashDetected,
+    finalUrl: sc.finalUrl,
+    net: arr("networkFailures")
+      .map((f) => `${f.resourceType}:${f.errorText ?? f.blockedReason}`).sort(),
+    con: arr("consoleErrors").map((c) => JSON.stringify(c.args ?? c).slice(0, 200)).sort(),
+    exc: arr("uncaughtExceptions").map((e) => JSON.stringify(e).slice(0, 200)).sort(),
+    logs: arr("browserLogs")
+      .map((l) => `${l.source}/${l.level}/${String(l.text ?? "").slice(0, 120)}`).sort(),
+    fonts: sc.fonts,
+    text: ((sc.pageTextSample as string) ?? "").trim(),
+    extra: sc.extra ?? null,
+  });
+}
+
+export function classifyStrength(
+  report: AuditReport,
+  f: RubricFinding,
+): FindingStrength {
+  if (f.scenario === "baseline") return "baseline";
+  const sc = report.scenarios.find((s) => s.scenario === f.scenario);
+  const base = report.scenarios.find((s) => s.scenario === "baseline");
+  if (!sc || !base) return "unmet";
+  if (!signalDetected(report, f)) return "unmet";
+  // Does the signal already hold with nothing injected?
+  const atBaseline = signalDetected(report, { ...f, scenario: "baseline" });
+  if (!atBaseline) return "strong";
+  return observable(sc as unknown as Record<string, unknown>) ===
+      observable(base as unknown as Record<string, unknown>)
+    ? "hollow"
+    : "survives";
 }
 
 export function scoreAudit(report: AuditReport, rubric: Rubric): Score {
@@ -64,6 +138,14 @@ export function scoreAudit(report: AuditReport, rubric: Rubric): Score {
   let matched = 0;
   let falsePositives = 0;
   const missed: string[] = [];
+  const strength: Record<FindingStrength, number> = {
+    strong: 0,
+    survives: 0,
+    hollow: 0,
+    baseline: 0,
+    unmet: 0,
+  };
+  const hollowFindings: string[] = [];
 
   for (const f of rubric.expectedFindings) {
     perClass[f.class] ??= { total: 0, matched: 0 };
@@ -76,6 +158,15 @@ export function scoreAudit(report: AuditReport, rubric: Rubric): Score {
     if (satisfied) { matched++; perClass[f.class].matched++; }
     else if (f.expected) missed.push(f.id);
     else falsePositives++;
+
+    // Only entries the rubric expects to be FOUND carry evidence. An
+    // `expected: false` entry asserts an absence, which has no baseline
+    // contrast to measure.
+    if (f.expected) {
+      const s = classifyStrength(report, f);
+      strength[s]++;
+      if (s === "hollow") hollowFindings.push(f.id);
+    }
   }
   const total = rubric.expectedFindings.length;
   const recall = matched / Math.max(total, 1);
@@ -91,6 +182,8 @@ export function scoreAudit(report: AuditReport, rubric: Rubric): Score {
     falsePositives,
     precision: Math.round(precision * 100) / 100,
     recall: Math.round(recall * 100) / 100,
+    strength,
+    hollowFindings,
     perClass,
   };
 }
